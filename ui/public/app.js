@@ -31,7 +31,7 @@ import { getLocaleTag, installI18n } from "./lib/i18n.js";
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const api = createApiClient();
-installI18n();
+const i18n = installI18n();
 
 const FALLBACK_REGION_CATALOG = {
   source: { kind: "fallback" },
@@ -189,7 +189,7 @@ function toast(message, tone = "info") {
 function log(message) {
   const output = $("#logOutput");
   const stamp = new Date().toLocaleTimeString(getLocaleTag());
-  output.textContent += `[${stamp}] ${message}\n`;
+  output.textContent += `[${stamp}] ${i18n.translate(message)}\n`;
   output.scrollTop = output.scrollHeight;
 }
 

@@ -7,6 +7,7 @@ const PHRASE_PAIRS = [
   ["主导航", "Main navigation"],
   ["全局操作", "Global actions"],
   ["账号 / 项目", "Account / project"],
+  ["：", ": "],
   ["Gcloud · 本地", "Gcloud · Local"],
   ["总览", "Overview"],
   ["实例", "Instances"],
@@ -16,10 +17,31 @@ const PHRASE_PAIRS = [
   ["项目", "Project"],
   ["目标", "Target"],
   ["规格", "Size"],
+  ["；", "; "],
   ["云端状态", "cloud state"],
   ["执行风险", "execution risk"],
   ["最新预览指纹", "latest preview fingerprint"],
+  ["空闲", "Idle"],
+  ["从实例清单选择一台实例后显示下一步。", "Select an instance from the inventory to see the next step."],
+  ["无需部署节点", "No node deployment needed"],
+  ["未获取", "Not available"],
+  ["等待只读探测", "Waiting for read-only probe"],
+  ["端口策略", "Port policy"],
+  ["读取监听端口后，可配置 SSH 双入口和实例级隔离", "After reading listener ports, you can configure dual SSH entry and instance-level isolation"],
+  ["当前没有可用的本地危险操作", "No local dangerous actions are available"],
+  ["暂无任务、验证或节点结果。", "No tasks, verification, or node results yet."],
+  ["协议", "Protocol"],
+  ["代理", "Proxy"],
+  ["机房", "Colocation"],
+  ["重新检测", "Check again"],
+  ["重连并尝试换 IP", "Reconnect and try a new IP"],
+  ["SSH 密钥入口，固定保留", "SSH key entry, always retained"],
+  ["诊断摘要", "Diagnostic summary"],
+  ["诊断", "Diagnostics"],
+  ["未识别 · 尚未验证 · 智能诊断", "Unrecognized · Not verified · Smart diagnosis"],
   ["默认项目自动切换失败", "Default project auto-switch failed"],
+  ["项目切换失败", "Project switch failed"],
+  ["服务模式", "Service mode"],
   ["项目列表已按当前 gcloud 配置和账号同步。", "The project list is synced for the current gcloud configuration and account."],
   ["未选择实例。", "No instance selected."],
   ["当前为缓存清单，请先恢复实时连接。", "This is a cached inventory. Restore the live connection first."],
@@ -56,6 +78,7 @@ const PHRASE_PAIRS = [
   ["IAP 保留救援通道；密钥路径只保存在本地记录中。", "IAP remains a rescue path; the key path is stored only in the local record."],
   ["用于识别防火墙目标和本地管理范围。", "Used to identify firewall targets and local management scope."],
   ["等待填写部署信息", "Waiting for deployment details"],
+  ["自定义 startup script", "Custom startup script"],
   ["生成预览只读取云端状态，不会创建或修改实例。", "Preview generation only reads cloud state; it does not create or modify instances."],
   ["选择实例或任务后生成可复制摘要。", "Select an instance or task to generate a copyable summary."],
   ["只开实例模式不会生成节点链接。", "VM-only mode does not generate node links."],
@@ -515,17 +538,27 @@ const EN_TO_ZH = new Map(PHRASE_PAIRS.map(([zh, en]) => [en, zh]));
 const SORTED_ZH = [...ZH_TO_EN.keys()].sort((a, b) => b.length - a.length);
 const SORTED_EN = [...EN_TO_ZH.keys()].sort((a, b) => b.length - a.length);
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function replacePhrases(value, locale) {
   let text = String(value ?? "");
   const source = locale === "en-US" ? SORTED_ZH : SORTED_EN;
   const map = locale === "en-US" ? ZH_TO_EN : EN_TO_ZH;
-  for (const phrase of source) {
-    if (!text.includes(phrase)) continue;
-    text = text.split(phrase).join(map.get(phrase));
+  // Replace against the original text in one pass. Replacing in a loop lets
+  // a translated value match a later, shorter key and cascade into mixed copy
+  // (for example, `Always Free` becoming `Always 免费`).
+  if (source.length) {
+    const pattern = new RegExp(source.map(escapeRegExp).join("|"), "g");
+    text = text.replace(pattern, (match) => map.get(match) ?? match);
   }
   if (locale === "en-US") {
     text = text
       .replace(/(\d+)\s*个问题/g, "$1 issues")
+      .replace(/(\d+)\s*项属性/g, "$1 attributes")
+      .replace(/(\d+)\s*条(?:脱敏证据|Redacted evidence)/g, "$1 redacted evidence")
+      .replace(/(\d+)\s*个$/g, "$1")
       .replace(/(\d+)\s*项运行中/g, "$1 running")
       .replace(/(\d+)\s*项/g, "$1 items")
       .replace(/(\d+)\s*个可用区/g, "$1 zones")
@@ -586,7 +619,9 @@ function translateDom(root, locale) {
   if (owner) owner.lang = locale;
   if (root.nodeType === Node.TEXT_NODE) {
     if (!shouldSkipTextNode(root) && root.nodeValue.trim()) {
-      const translated = replacePhrases(root.nodeValue, locale);
+      const source = root.__gcloudI18nSource ?? root.nodeValue;
+      root.__gcloudI18nSource = source;
+      const translated = replacePhrases(source, locale);
       if (translated !== root.nodeValue) root.nodeValue = translated;
     }
     return;
@@ -597,7 +632,9 @@ function translateDom(root, locale) {
   while ((current = walker.nextNode())) nodes.push(current);
   for (const node of nodes) {
     if (shouldSkipTextNode(node) || !node.nodeValue.trim()) continue;
-    const translated = replacePhrases(node.nodeValue, locale);
+    const source = node.__gcloudI18nSource ?? node.nodeValue;
+    node.__gcloudI18nSource = source;
+    const translated = replacePhrases(source, locale);
     if (translated !== node.nodeValue) node.nodeValue = translated;
   }
   const elements = [];
@@ -606,9 +643,11 @@ function translateDom(root, locale) {
   for (const element of elements) {
     for (const attribute of ["aria-label", "placeholder", "title"]) {
       if (!element.hasAttribute(attribute)) continue;
-      const currentValue = element.getAttribute(attribute);
-      const translated = replacePhrases(currentValue, locale);
-      if (translated !== currentValue) element.setAttribute(attribute, translated);
+      const sources = element.__gcloudI18nAttributes || (element.__gcloudI18nAttributes = {});
+      const source = sources[attribute] ?? element.getAttribute(attribute);
+      sources[attribute] = source;
+      const translated = replacePhrases(source, locale);
+      if (translated !== element.getAttribute(attribute)) element.setAttribute(attribute, translated);
     }
   }
 }
@@ -652,7 +691,22 @@ export function installI18n({ root = document, toggleSelector = "#languageToggle
   const observer = typeof MutationObserver === "function" ? new MutationObserver((mutations) => {
     if (translating || locale !== "en-US") return;
     for (const mutation of mutations) {
-      if (mutation.type === "characterData" || mutation.type === "attributes") translateDom(mutation.target, locale);
+      if (mutation.type === "characterData") {
+        const node = mutation.target;
+        const source = node.__gcloudI18nSource;
+        if (!source || replacePhrases(source, locale) !== node.nodeValue) node.__gcloudI18nSource = node.nodeValue;
+        translateDom(node, locale);
+      }
+      if (mutation.type === "attributes") {
+        const element = mutation.target;
+        const attribute = mutation.attributeName;
+        if (attribute && ["aria-label", "placeholder", "title"].includes(attribute)) {
+          const sources = element.__gcloudI18nAttributes || (element.__gcloudI18nAttributes = {});
+          const current = element.getAttribute(attribute) || "";
+          if (!sources[attribute] || replacePhrases(sources[attribute], locale) !== current) sources[attribute] = current;
+        }
+        translateDom(element, locale);
+      }
       for (const node of mutation.addedNodes) {
         if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.TEXT_NODE) translateDom(node, locale);
       }
