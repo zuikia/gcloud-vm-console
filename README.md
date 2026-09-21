@@ -20,6 +20,7 @@ maintenance without turning a local tool into a hosted control plane.
 - Local task history with interrupted-task recovery and no automatic resume.
 - SSH dual-entry and network-exposure governance with fail-closed validation.
 - Optional deployment adapters for Sing-Box-Plus, 3X-UI, and custom startup scripts.
+- Built-in English / Simplified Chinese interface switching with a locally persisted preference; cloud identifiers and command literals remain unchanged.
 
 The adapters are optional and should only be used on infrastructure you own or
 are authorized to administer.

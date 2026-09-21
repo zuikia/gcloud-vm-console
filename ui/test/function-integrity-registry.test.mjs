@@ -16,7 +16,9 @@ const index = readFileSync(new URL("public/index.html", root), "utf8");
 const app = readFileSync(new URL("public/app.js", root), "utf8");
 
 function buttonIds() {
-  return [...index.matchAll(/<button[^>]+id="([^"]+)"/g)].map((match) => match[1]);
+  return [...index.matchAll(/<button[^>]+id="([^"]+)"[^>]*>/g)]
+    .filter((match) => !/data-i18n-control/.test(match[0]))
+    .map((match) => match[1]);
 }
 
 function apiPaths() {

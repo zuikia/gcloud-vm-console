@@ -1,4 +1,5 @@
 import { toVerificationRecoveryView } from "./verification-recovery-view-model.js";
+import { getLocaleTag } from "./i18n.js";
 
 const TYPE_LABELS = {
   "execute-change": "执行变更",
@@ -291,7 +292,7 @@ export function toTaskRow(job = {}, records = []) {
     vmName: record?.identity?.name || job.identity?.name || job.recordId || "未绑定实例",
     projectId: record?.identity?.projectId || job.identity?.projectId || "",
     zone: record?.identity?.zone || job.identity?.zone || "",
-    time: createdAt ? createdAt.toLocaleString("zh-CN", { hour12: false }) : "未知",
+    time: createdAt ? createdAt.toLocaleString(getLocaleTag(), { hour12: false }) : "未知",
     status: String(job.status || ""),
     statusLabel: taskStatusLabel(job.status),
     statusTone: statusTone(job.status),

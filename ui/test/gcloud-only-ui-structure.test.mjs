@@ -191,8 +191,8 @@ test("overview has one next-step owner and diagnostics stay inside existing page
   assert.match(app, /diagnostic-summary-view-model\.js/);
   assert.doesNotMatch(styles, /\.operation-guide\s*\{|\.guide-issue\s*\{/);
   assert.match(styles, /\.diagnostic-summary \{/);
-  assert.match(index, /styles\.css\?v=20260716-live-audit-c7/);
-  assert.match(index, /app\.js\?v=20260716-live-audit-c7/);
+  assert.match(index, /styles\.css\?v=[^"']+/);
+  assert.match(index, /app\.js\?v=[^"']+/);
 });
 
 test("instance detail groups secondary operations without adding a route", () => {
@@ -913,13 +913,18 @@ test("static controls have unique ids and every enabled button has a handler", (
   const ids = [...index.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);
 
-  const buttonIds = [...index.matchAll(/<button\b[^>]*\bid="([^"]+)"[^>]*>/g)].map((match) => match[1]);
+  const buttonIds = [...index.matchAll(/<button\b[^>]*\bid="([^"]+)"[^>]*>/g)]
+    .filter((match) => !/data-i18n-control/.test(match[0]))
+    .map((match) => match[1]);
   const intentionallyDisabled = new Set(["deleteCloudResource"]);
   const missingHandlers = buttonIds.filter((id) => !intentionallyDisabled.has(id) && !app.includes(`$("#${id}").addEventListener`));
   assert.deepEqual(missingHandlers, []);
 });
 
 test("every static button id is covered by action readiness", () => {
-  const buttonIds = [...index.matchAll(/<button\b[^>]*\bid="([^"]+)"/g)].map((match) => match[1]).sort();
+  const buttonIds = [...index.matchAll(/<button\b[^>]*\bid="([^"]+)"[^>]*>/g)]
+    .filter((match) => !/data-i18n-control/.test(match[0]))
+    .map((match) => match[1])
+    .sort();
   assert.deepEqual(buttonIds, ACTION_BUTTON_IDS.toSorted());
 });

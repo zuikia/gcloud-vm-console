@@ -26,10 +26,12 @@ import { summarizeResourceSyncFailures } from "./lib/resource-sync-view-model.js
 import { taskStatusLabel, taskTimelineHint, toTaskResult, toTaskRow, toTaskSteps } from "./lib/task-view-model.js";
 import { createTaskWorkspaceController } from "./lib/task-workspace-controller.js";
 import { toWarpEgressView } from "./lib/warp-egress-view-model.js";
+import { getLocaleTag, installI18n } from "./lib/i18n.js";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const api = createApiClient();
+installI18n();
 
 const FALLBACK_REGION_CATALOG = {
   source: { kind: "fallback" },
@@ -186,7 +188,7 @@ function toast(message, tone = "info") {
 
 function log(message) {
   const output = $("#logOutput");
-  const stamp = new Date().toLocaleTimeString();
+  const stamp = new Date().toLocaleTimeString(getLocaleTag());
   output.textContent += `[${stamp}] ${message}\n`;
   output.scrollTop = output.scrollHeight;
 }
@@ -721,7 +723,7 @@ function renderOverview() {
     $("#recentTaskStatus").textContent = status;
     $("#recentTaskStatus").className = `state-pill ${toneForStatus(status)}`;
     $("#recentTaskName").textContent = state.lastJob.label || state.lastJob.type || "最近任务";
-    $("#recentTaskTime").textContent = state.lastJobAt ? state.lastJobAt.toLocaleTimeString() : "刚刚";
+    $("#recentTaskTime").textContent = state.lastJobAt ? state.lastJobAt.toLocaleTimeString(getLocaleTag()) : "刚刚";
   } else {
     $("#recentTaskStatus").textContent = "暂无任务";
     $("#recentTaskStatus").className = "state-pill draft";
@@ -1688,7 +1690,7 @@ function formatDetailCheckedAt(value = "") {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? String(value)
-    : `检查于 ${date.toLocaleString("zh-CN", { hour12: false })}`;
+    : `检查于 ${date.toLocaleString(getLocaleTag(), { hour12: false })}`;
 }
 
 function renderInstanceStatusSummary(view) {
@@ -2736,7 +2738,7 @@ function formatWarpEvidenceTime(view) {
   const date = new Date(view.checkedAt);
   const checked = Number.isNaN(date.getTime())
     ? view.checkedAt
-    : date.toLocaleString("zh-CN", { hour12: false });
+    : date.toLocaleString(getLocaleTag(), { hour12: false });
   return `${view.freshnessLabel} · ${checked}`;
 }
 

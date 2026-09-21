@@ -20,6 +20,7 @@ The primary user is a beginner or intermediate Google Cloud user who wants to cr
 6. Node deployment is an automated pipeline; stage retry is shown only after failure.
 7. Old workflow files are retained only as isolated migration evidence.
 8. Read paths are coordinated and deduplicated; performance work must not weaken confirmation, fingerprint, task-lock, or local persistence boundaries.
+9. The interface supports English and Simplified Chinese without translating cloud identifiers, commands, or serialized evidence; the selected language is stored locally.
 
 ## Pages
 
