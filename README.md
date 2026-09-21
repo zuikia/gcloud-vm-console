@@ -1,8 +1,10 @@
-# gcloud-vm-console
+# GCP VM Console
+
+_Local, safety-first Google Cloud VM operations workbench._
 
 [简体中文](README.zh-CN.md) · English
 
-A local, safety-first console for Google Cloud Compute Engine. It uses the
+A local, safety-first workbench for Google Cloud Compute Engine. It uses the
 installed `gcloud` CLI as the only cloud control path and keeps credentials,
 records, task history, and secrets on the user's machine.
 

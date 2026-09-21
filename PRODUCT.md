@@ -4,7 +4,7 @@
 
 ## Product
 
-GCP VM Console is a local operations console for small Google Cloud Compute Engine instances. It uses gcloud as the single control path and keeps account/project selection, instance inventory, deployment preview, maintenance tasks, node deployment, logs, and results in one interface.
+GCP VM Console is a local, gcloud-only operations workbench for small Google Cloud Compute Engine instances. It keeps account/project selection, instance inventory, deployment preview, maintenance tasks, node deployment, logs, and results in one interface.
 
 ## Audience
 

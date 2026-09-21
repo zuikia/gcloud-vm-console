@@ -1,8 +1,10 @@
-# gcloud-vm-console
+# GCP VM Console
+
+_本地运行、以安全为先的 Google Cloud VM 运维工作台。_
 
 [English](README.md) · 简体中文
 
-一个本地运行、以安全为先的 Google Cloud Compute Engine 控制台。项目只通过已安装的 `gcloud` CLI 操作云端，并将凭据、记录、任务历史和密钥留在用户自己的机器上。
+一个本地运行、以安全为先的 Google Cloud Compute Engine 运维工作台。项目只通过已安装的 `gcloud` CLI 操作云端，并将凭据、记录、任务历史和密钥留在用户自己的机器上。
 
 它面向需要管理虚拟机清单、诊断、部署预览、SSH、防火墙暴露和维护流程的用户，避免把本地工具变成托管式控制平面。
 

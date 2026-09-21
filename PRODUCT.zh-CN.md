@@ -4,7 +4,7 @@
 
 ## 产品
 
-GCP VM Console 是一个面向小型 Google Cloud Compute Engine 实例的本地运维控制台。它以 gcloud 作为唯一云端控制路径，在一个界面中处理账号/项目选择、实例清单、部署预览、维护任务、节点部署、日志和结果。
+GCP VM Console 是一个面向小型 Google Cloud Compute Engine 实例的本地、仅通过 gcloud 的运维工作台。它以 gcloud 作为唯一云端控制路径，在一个界面中处理账号/项目选择、实例清单、部署预览、维护任务、节点部署、日志和结果。
 
 ## 用户
 
