@@ -96,6 +96,7 @@ when a Playwright browser is installed:
 
 ```bash
 npm --prefix ui run audit:layout
+npm --prefix ui run audit:i18n
 npm --prefix ui run audit:performance:browser
 ```
 
