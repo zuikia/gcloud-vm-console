@@ -1,0 +1,21 @@
+{
+  "name": "gcloud-vm-console",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node scripts/check.mjs",
+    "audit:layout": "node test/browser-layout-audit.mjs",
+    "audit:performance": "node scripts/performance-audit.mjs",
+    "audit:performance:browser": "node scripts/browser-performance-audit.mjs",
+    "cleanup:local": "node scripts/local-cleanup.mjs",
+    "acceptance:readonly": "node scripts/readonly-live-acceptance.mjs",
+    "check:gcloud-only": "npm run check"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  },
+  "dependencies": {
+    "@fontsource-variable/ibm-plex-sans": "5.2.8"
+  }
+}

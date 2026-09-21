@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GCP VM Console</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/styles.css?v=20260716-live-audit-c7">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand" aria-label="GCP VM Console">
+        <span class="brand-word">GCP</span>
+        <span class="brand-word">VM</span>
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span class="brand-word brand-accent">CONSOLE</span>
+      </div>
+
+      <nav class="nav" aria-label="主导航">
+        <a href="#workbench" data-route="workbench">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="8" rx="1.5"></rect>
+            <rect x="14" y="3" width="7" height="5" rx="1.5"></rect>
+            <rect x="14" y="12" width="7" height="9" rx="1.5"></rect>
+            <rect x="3" y="15" width="7" height="6" rx="1.5"></rect>
+          </svg>
+          <span class="nav-label">总览</span>
+        </a>
+        <a href="#resources" data-route="resources">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <rect x="4" y="4" width="16" height="6" rx="2"></rect>
+            <rect x="4" y="14" width="16" height="6" rx="2"></rect>
+            <path d="M8 7h.01M8 17h.01"></path>
+          </svg>
+          <span class="nav-label">实例</span>
+        </a>
+        <a href="#config" data-route="config">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="M4 7h7M15 7h5M4 17h5M13 17h7"></path>
+            <circle cx="13" cy="7" r="2"></circle>
+            <circle cx="11" cy="17" r="2"></circle>
+          </svg>
+          <span class="nav-label">部署</span>
+        </a>
+        <a href="#tasks" data-route="tasks">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="M6 7h12M6 12h12M6 17h7"></path>
+            <path d="m15 16 2 2 4-4"></path>
+          </svg>
+          <span class="nav-label">任务</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-meta">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span>Gcloud · 本地</span>
+      </div>
+    </aside>
+
+    <main class="content" id="mainContent">
+      <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+
+      <header class="topbar" aria-label="全局操作">
+        <div class="scope-block">
+          <span>账号 / 项目</span>
+          <strong id="currentScope">尚未选择</strong>
+        </div>
+        <div id="globalSyncState" class="topbar-sync" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>等待选择上下文</span>
+        </div>
+        <div class="topbar-actions">
+          <button id="refreshAll" class="secondary" type="button">刷新数据</button>
+          <button id="openConfig" class="primary" type="button" disabled>新建实例</button>
+        </div>
+      </header>
+
+      <div id="activeTaskBar" class="active-task-bar" role="status" aria-live="polite" hidden>
+        <span class="status-dot" aria-hidden="true"></span>
+        <div>
+          <strong id="activeTaskTitle">暂无运行任务</strong>
+          <span id="activeTaskDetail">任务状态会在这里持续显示。</span>
+        </div>
+        <span id="activeTaskState" class="state-pill draft">空闲</span>
+      </div>
+
+      <div id="globalInlineError" class="inline-error" role="alert" hidden></div>
+
+      <section id="page-workbench" data-view="workbench" class="page">
+        <div class="page-header overview-heading">
+          <div>
+            <h1>总览</h1>
+            <p>当前账号、项目、资源和任务状态集中在这里。</p>
+          </div>
+        </div>
+
+        <section id="overviewOperations" class="panel ops-panel">
+          <div class="ops-header">
+            <div>
+              <span class="section-label">运行上下文</span>
+              <h2>运营状态</h2>
+              <p id="contextHint">选择本机 gcloud 配置和项目后，所有资源操作都会绑定到这个上下文。</p>
+            </div>
+            <div class="ops-header-actions">
+              <span id="serviceState" class="state-pill draft" aria-live="polite">正在连接本地服务</span>
+              <button id="reloadAccounts" class="secondary compact" type="button">重新读取</button>
+            </div>
+          </div>
+          <div class="context-controls ops-controls">
+            <label>
+              <span>gcloud 配置</span>
+              <select id="accountSelect" aria-label="gcloud 配置"></select>
+            </label>
+            <label>
+              <span>项目</span>
+              <select id="projectSelect" aria-label="Google Cloud 项目"></select>
+            </label>
+            <button id="useContext" class="secondary align-end" type="button">切换到此项目</button>
+          </div>
+
+          <section id="overviewSummary" class="summary-strip ops-metrics" aria-label="资源摘要">
+            <div class="summary-item">
+              <span>实例总数</span>
+              <strong id="overviewVmCount">0</strong>
+            </div>
+            <div class="summary-item">
+              <span>运行中</span>
+              <strong id="overviewRunningCount">0</strong>
+            </div>
+          </section>
+        </section>
+
+        <section id="doctorPanel" class="panel doctor-panel" aria-labelledby="doctorTitle">
+          <div class="section-heading split">
+            <div>
+              <span class="section-label">只读预检</span>
+              <h2 id="doctorTitle">环境体检</h2>
+              <p id="doctorSummary">选择账号和项目后可运行只读体检。</p>
+            </div>
+            <button id="doctorRunBtn" class="secondary compact" type="button">运行体检</button>
+          </div>
+          <div id="doctorChecks" class="doctor-checks" aria-live="polite"></div>
+        </section>
+
+        <div class="overview-grid">
+          <article id="overviewCurrentVm" class="panel overview-vm-panel">
+            <div class="section-heading">
+              <div>
+                <h2>当前实例</h2>
+                <p id="selectedVmSummary">尚未选择实例。</p>
+              </div>
+              <button id="switchVm" class="secondary compact" type="button">打开实例清单</button>
+            </div>
+            <dl class="fact-grid overview-facts" id="selectedVmFacts"></dl>
+            <div id="selectedVmEmpty" class="empty-state compact-empty">
+              <strong>尚未选择管理对象</strong>
+              <span>进入实例清单后选择一行，这里会同步显示状态和公网 IP。</span>
+            </div>
+          </article>
+
+          <article id="overviewNextAction" class="panel next-action-panel">
+            <span class="section-label">下一步</span>
+            <h2 id="nextTitle">选择账号与项目</h2>
+            <p id="nextBody">先确定操作上下文，避免对错误的项目执行命令。</p>
+            <button id="mainAction" class="primary" type="button">选择账号与项目</button>
+            <ol class="compact-steps" aria-label="操作进度">
+              <li data-step="context"><span>1</span>账号项目</li>
+              <li data-step="resource"><span>2</span>选择实例</li>
+              <li data-step="config"><span>3</span>预览执行</li>
+            </ol>
+          </article>
+
+          <article id="overviewRecentTask" class="panel recent-task-panel">
+            <div class="section-heading">
+              <div>
+                <h2>最近任务</h2>
+                <p>仅显示本次本地控制台会话的最近结果。</p>
+              </div>
+              <button id="openTasks" class="secondary compact" type="button">查看任务</button>
+            </div>
+            <div class="recent-task-row">
+              <span id="recentTaskStatus" class="state-pill draft">暂无任务</span>
+              <strong id="recentTaskName">还没有执行预览或维护操作</strong>
+              <time id="recentTaskTime">--</time>
+            </div>
+          </article>
+        </div>
+
+        <details class="fold-panel">
+          <summary>费用与安全</summary>
+          <div class="fold-content">
+            <p>免费额度取决于区域、机器类型、磁盘、公网 IP 和出站流量。创建前仍需核对当前官方规则。</p>
+            <button id="auditFreeRules" class="secondary compact" type="button">更新规则提示</button>
+          </div>
+          <div id="freeRuleSummary" class="inline-note">尚未校对。</div>
+          <div class="meta-line">
+            <span id="freeRuleSource">来源：未校对</span>
+            <time id="freeRuleCheckedAt">时间：--</time>
+          </div>
+        </details>
+      </section>
+
+      <section id="page-resources" data-view="resources" class="page" hidden>
+        <div class="page-header split">
+          <div>
+            <h1>实例</h1>
+            <p>本地记录与当前账号项目下的云端实例合并展示；点击行仅选择对象。</p>
+          </div>
+          <div class="toolbar">
+            <input id="resourceSearch" type="search" placeholder="搜索名称、项目或 IP" aria-label="搜索实例">
+            <button id="refreshResources" class="secondary" type="button">刷新清单</button>
+          </div>
+        </div>
+
+        <div class="resource-layout">
+          <section class="panel resource-list-panel">
+            <div class="section-heading list-heading">
+              <div>
+                <h2>统一清单</h2>
+                <p>账号、项目、位置和来源始终随资源显示。</p>
+              </div>
+              <span id="resourceCount" class="count-badge">0 项</span>
+            </div>
+            <p id="resourceSyncNotice" class="resource-sync-notice" role="status" hidden></p>
+            <div id="resourceList" class="resource-list"></div>
+          </section>
+
+          <aside class="panel detail-panel">
+            <header class="instance-detail-header">
+              <div>
+                <h2 id="detailTitle">未选择实例</h2>
+                <p id="detailSubtitle">从左侧清单选择一台实例。</p>
+              </div>
+              <div class="instance-detail-meta" aria-label="实例摘要">
+                <span id="detailStateBadge" class="state-pill draft">未选择</span>
+                <span id="detailExternalIp">公网 IP --</span>
+                <time id="detailCheckedAt">尚未检查</time>
+              </div>
+            </header>
+            <div id="detailEmpty" class="empty-state compact-empty">
+              <strong>选择一台实例</strong>
+              <span>选择后显示统一状态、建议操作和折叠详情。</span>
+            </div>
+            <div id="detailContent" class="detail-content" hidden>
+              <section id="instanceStatusSummary" class="instance-status-summary" aria-label="实例状态摘要">
+                <div class="instance-status-item is-muted" data-instance-status="ssh">
+                  <span>SSH</span>
+                  <strong>待探测</strong>
+                </div>
+                <div class="instance-status-item is-muted" data-instance-status="bbr">
+                  <span>BBR</span>
+                  <strong>待探测</strong>
+                </div>
+                <div class="instance-status-item is-muted" data-instance-status="firewall">
+                  <span>防火墙</span>
+                  <strong>待探测</strong>
+                </div>
+                <div class="instance-status-item is-muted" data-instance-status="services">
+                  <span>服务</span>
+                  <strong>待探测</strong>
+                </div>
+              </section>
+
+              <section id="detailRecommendation" class="instance-recommendation" aria-live="polite">
+                <div>
+                  <span class="section-label">下一步</span>
+                  <h3 id="detailRecommendationTitle">建议操作</h3>
+                  <p id="detailRecommendationText">选择实例后显示下一步。</p>
+                </div>
+                <button id="showNodeResults" class="primary compact" type="button" disabled hidden>查看节点结果</button>
+              </section>
+
+              <div id="detailOperations" class="detail-operations operation-hub" hidden>
+                <div id="operationHub" class="operation-hub-body instance-action-groups" aria-label="实例操作分组">
+                  <details class="action-cluster primary-cluster" data-action-group="configure" open>
+                    <summary>
+                      <span>配置操作</span>
+                      <small>调整部署或复用配置</small>
+                    </summary>
+                    <div class="action-cluster-body">
+                      <button id="detailPrimary" class="secondary compact" type="button" disabled>设置部署</button>
+                      <button id="cloneVm" class="secondary compact" type="button" disabled>基于此新建</button>
+                      <button id="deployNodes" class="secondary compact" type="button" disabled>部署节点</button>
+                    </div>
+                  </details>
+                  <details class="action-cluster" data-action-group="diagnose" open>
+                    <summary>
+                      <span>智能诊断</span>
+                      <small>只读探测，不修改云端</small>
+                    </summary>
+                    <div class="action-cluster-body">
+                      <button id="smartDiagnoseInstance" class="secondary compact" type="button" disabled>运行只读探测</button>
+                      <button id="adoptLocalInstance" class="secondary compact" type="button" disabled hidden>接管本地</button>
+                    </div>
+                  </details>
+                  <details class="action-cluster" data-action-group="maintain" open>
+                    <summary>
+                      <span>维护操作</span>
+                      <small>执行前确认影响范围</small>
+                    </summary>
+                    <div class="action-cluster-body">
+                      <button id="restartVm" class="secondary compact" type="button" disabled>重启实例</button>
+                      <button id="systemUpdate" class="secondary compact" type="button" disabled>系统更新</button>
+                    </div>
+                  </details>
+                </div>
+                <p id="detailActionHint" class="action-hint" aria-live="polite" hidden></p>
+              </div>
+
+              <details id="technicalDetails" class="instance-disclosure">
+                <summary>
+                  <span>技术详情</span>
+                  <small id="technicalDetailsSummary">未识别 · 尚未验证 · 建议先诊断</small>
+                </summary>
+                <div class="instance-disclosure-body">
+                  <div id="technicalOverview" class="technical-overview" aria-label="技术详情摘要">
+                    <div id="technicalRecognitionSummary" class="technical-summary-row is-muted" data-technical-summary="recognition">
+                      <span class="technical-summary-label">部署识别</span>
+                      <strong>未识别</strong>
+                      <small>暂无可信识别证据</small>
+                    </div>
+                    <div id="technicalIssueSummary" class="technical-summary-row is-muted" data-technical-summary="issue">
+                      <span class="technical-summary-label">验证问题</span>
+                      <strong>尚未验证</strong>
+                      <small>运行只读探测后显示问题摘要</small>
+                    </div>
+                    <div id="technicalRecoverySummary" class="technical-summary-row is-info" data-technical-summary="recovery">
+                      <span class="technical-summary-label">恢复建议</span>
+                      <strong>智能诊断</strong>
+                      <small>先执行只读探测，不修改云端实例</small>
+                    </div>
+                  </div>
+
+                  <details id="technicalMoreAttributes" class="technical-more-attributes">
+                    <summary>
+                      <span>更多属性</span>
+                      <small id="technicalMoreAttributesSummary">机器、网络、身份与脱敏证据</small>
+                    </summary>
+                    <div class="technical-more-body">
+                      <label class="technical-manual-method" for="manualDeploymentMethod">
+                        <span>手动指定部署方式</span>
+                        <select id="manualDeploymentMethod" aria-describedby="manualDeploymentMethodHint">
+                          <option value="auto">按识别结果</option>
+                          <option value="vm_only">只开实例</option>
+                          <option value="singbox_plus">Sing-Box-Plus</option>
+                          <option value="three_x_ui">3X-UI</option>
+                          <option value="custom_startup">自定义脚本</option>
+                          <option value="external_custom">外部自定义</option>
+                        </select>
+                        <small id="manualDeploymentMethodHint">仅在接管外部实例时作为本地确认依据。</small>
+                      </label>
+                      <div class="technical-attribute-groups">
+                        <section class="technical-attribute-group" aria-labelledby="technicalBasicTitle">
+                          <h3 id="technicalBasicTitle">基础</h3>
+                          <dl id="detailCoreFacts" class="technical-facts"></dl>
+                        </section>
+                        <section class="technical-attribute-group" aria-labelledby="technicalNetworkTitle">
+                          <h3 id="technicalNetworkTitle">网络</h3>
+                          <dl id="detailNetworkFacts" class="technical-facts"></dl>
+                        </section>
+                        <section class="technical-attribute-group" aria-labelledby="technicalIdentityTitle">
+                          <h3 id="technicalIdentityTitle">身份</h3>
+                          <dl id="detailIdentityFacts" class="technical-facts"></dl>
+                        </section>
+                      </div>
+                      <section id="firewallGovernanceGroup" class="technical-evidence-group firewall-governance-group" aria-labelledby="firewallGovernanceTitle" hidden>
+                        <div class="firewall-governance-heading">
+                          <h3 id="firewallGovernanceTitle">防火墙治理</h3>
+                          <span id="firewallGovernanceTone" class="state-pill draft">待检查</span>
+                        </div>
+                        <dl id="firewallGovernanceRows" class="technical-evidence-list firewall-governance-rows"></dl>
+                        <button id="manageNetworkExposure" class="secondary compact" type="button" disabled hidden>管理端口与 SSH</button>
+                      </section>
+                      <section id="technicalEvidenceGroup" class="technical-evidence-group" aria-labelledby="technicalEvidenceTitle" hidden>
+                        <h3 id="technicalEvidenceTitle">脱敏证据</h3>
+                        <dl id="technicalEvidence" class="technical-evidence-list"></dl>
+                      </section>
+                    </div>
+                  </details>
+                </div>
+              </details>
+
+              <details id="nodeResultsDetails" class="instance-disclosure">
+                <summary>
+                  <span>节点结果</span>
+                  <small id="nodeResultsSummary">暂无节点结果</small>
+                </summary>
+                <div class="instance-disclosure-body">
+                  <span id="detailNodeState" class="state-pill draft" hidden>未部署</span>
+                  <div id="detailNodeResult" class="detail-node-result inline-note">选择实例后显示节点链接或面板信息。</div>
+                  <div id="detailFirewallResult" class="detail-firewall-result inline-note">节点相关防火墙规则会在这里显示。</div>
+                  <section id="warpEgressRow" class="warp-egress-row" aria-labelledby="warpEgressRowTitle" hidden>
+                    <div class="warp-egress-row-main">
+                      <div class="warp-egress-row-heading">
+                        <strong id="warpEgressRowTitle">WARP 出口</strong>
+                        <span id="warpEgressRowState" class="state-pill draft">待检测</span>
+                      </div>
+                      <div class="warp-egress-row-meta">
+                        <code id="warpEgressRowValue" class="warp-egress-value">尚未读取实时出口</code>
+                        <small id="warpEgressRowTime">显式检测后显示证据时间</small>
+                      </div>
+                    </div>
+                    <button id="manageWarpEgress" class="secondary compact" type="button" disabled>管理</button>
+                  </section>
+                </div>
+              </details>
+
+              <details class="danger-zone instance-disclosure">
+                <summary>
+                  <span>危险操作</span>
+                  <small id="dangerDetailsSummary">默认收起，需要二次确认</small>
+                </summary>
+                <div class="instance-disclosure-body">
+                  <div class="danger-actions">
+                    <button id="deleteLocalRecord" class="danger" type="button" disabled>移除本地记录</button>
+                    <button id="deleteCloudResource" class="danger" type="button" disabled>删除云端资源</button>
+                  </div>
+                  <p>移除本地记录不会删除云端实例。云端删除当前未开放。</p>
+                </div>
+              </details>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="page-config" data-view="config" class="page" hidden>
+        <div class="page-header">
+          <div>
+            <h1>部署</h1>
+            <p>新建、编辑和基于已有实例新建共用同一套部署与预览流程。</p>
+          </div>
+        </div>
+
+        <form id="configForm" class="config-layout">
+          <section class="panel config-form-panel">
+            <div class="section-heading form-title">
+              <div>
+                <h2>实例部署</h2>
+                <p>字段会保存为本地记录；只有执行有效预览才会修改云端。</p>
+              </div>
+              <span id="configMode" class="state-pill draft">新建实例</span>
+            </div>
+
+            <section class="form-section">
+              <div class="form-section-title">
+                <h3>基础</h3>
+                <p>实例身份、位置、系统和规格。</p>
+              </div>
+              <div class="field-grid">
+                <label><span>名称</span><input id="vmName" name="name" required value="gcloud-instance"></label>
+                <label class="wide-field">
+                  <span>区域</span>
+                  <select id="region" name="region"></select>
+                  <small id="regionFreeTierHint" class="field-hint">正在读取区域目录。</small>
+                </label>
+                <div id="regionZoneHelper" class="region-zone-helper" aria-live="polite">
+                  <div class="zone-helper-copy">
+                    <strong id="zoneChoiceTitle">自动选择 zone</strong>
+                    <span id="zoneChoiceMeta">读取区域后显示可用区。</span>
+                  </div>
+                  <label class="zone-choice-field">
+                    <span>手动选择</span>
+                    <select id="zoneChoice" aria-label="手动选择可用区"></select>
+                  </label>
+                </div>
+                <label><span>机器类型</span><select id="machineType" name="machineType"></select></label>
+                <label><span>系统镜像</span><select id="image" name="image"></select></label>
+                <label><span>磁盘 GB</span><input id="diskSize" name="diskSize" type="number" min="10" value="30"></label>
+              </div>
+              <p id="regionCatalogSource" class="inline-note compact-note">区域目录尚未同步。</p>
+            </section>
+
+            <section id="networkProfileSection" class="form-section network-profile-section">
+              <div class="form-section-title">
+                <h3>网络配置</h3>
+                <p>公网地址、Network Tier 和虚拟网卡会进入变更预览。</p>
+              </div>
+              <div class="network-profile-content">
+                <div class="network-profile-grid">
+                  <label>
+                    <span>公网 IPv4</span>
+                    <select id="externalIpMode" name="externalIpMode" aria-describedby="networkProfileHint">
+                      <option value="static" selected>静态（推荐）</option>
+                      <option value="ephemeral">临时</option>
+                      <option value="none">不分配</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Network Tier</span>
+                    <select id="networkTier" name="networkTier" aria-describedby="networkProfileHint">
+                      <option value="PREMIUM" selected>Premium（推荐）</option>
+                      <option value="STANDARD">Standard</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>网卡类型</span>
+                    <select id="nicType" name="nicType" aria-describedby="networkProfileHint">
+                      <option value="GVNIC" selected>GVNIC（推荐）</option>
+                      <option value="VIRTIO_NET">VirtIO</option>
+                    </select>
+                  </label>
+                  <label id="staticAddressField" class="network-address-field">
+                    <span>静态地址资源名</span>
+                    <input id="staticAddressName" name="staticAddressName" maxlength="63" pattern="[a-z](?:[\-a-z0-9]{0,61}[a-z0-9])?" autocomplete="off" aria-describedby="networkProfileHint">
+                  </label>
+                </div>
+                <p id="networkProfileHint" class="network-profile-hint" aria-live="polite"></p>
+              </div>
+            </section>
+
+            <section class="form-section">
+              <div class="form-section-title">
+                <h3>部署方式</h3>
+                <p>只开实例不安装任何代理软件；其他模式在创建后运行对应流水线。</p>
+              </div>
+              <div class="mode-grid" id="deployModes">
+                <label class="mode-option">
+                  <input type="radio" name="deployMethod" value="vm_only" checked>
+                  <span><strong>只开实例</strong><small>不安装额外项目</small></span>
+                </label>
+                <label class="mode-option">
+                  <input type="radio" name="deployMethod" value="singbox_plus">
+                  <span><strong>Sing-Box-Plus</strong><small>自动同步节点端口</small></span>
+                </label>
+                <label class="mode-option">
+                  <input type="radio" name="deployMethod" value="three_x_ui">
+                  <span><strong>3X-UI</strong><small>安装固定版本面板</small></span>
+                </label>
+                <label class="mode-option">
+                  <input type="radio" name="deployMethod" value="custom_startup">
+                  <span><strong>自定义脚本</strong><small>使用下方 startup script</small></span>
+                </label>
+              </div>
+            </section>
+
+            <details class="form-section config-advanced">
+              <summary>
+                <span>
+                  <strong>高级设置</strong>
+                  <small>网络、SSH、标签和启动脚本</small>
+                </span>
+              </summary>
+              <div class="advanced-content">
+                <div class="form-section-title">
+                  <h3>VPC</h3>
+                  <p>公网地址、Network Tier 和网卡类型在上方统一选择。</p>
+                </div>
+                <div class="field-grid two-column">
+                  <label><span>网络</span><input id="network" name="network" value="default"></label>
+                  <label><span>子网</span><input id="subnet" name="subnet" value="default"></label>
+                </div>
+
+                <div class="form-section-title">
+                  <h3>SSH</h3>
+                  <p>IAP 保留救援通道；密钥路径只保存在本地记录中。</p>
+                </div>
+                <div class="field-grid">
+                  <label><span>SSH 用户</span><input id="sshUser" name="sshUser" value="y"></label>
+                  <label class="wide-field"><span>SSH 密钥路径</span><input id="sshKeyFile" name="sshKeyFile" placeholder="例如 ~/.ssh/google_compute_engine" value=""></label>
+                  <label><span>SSH 端口</span><input id="sshPort" name="sshPort" type="number" min="1" max="65535" value="45400"></label>
+                </div>
+
+                <div class="form-section-title">
+                  <h3>标签</h3>
+                  <p>用于识别防火墙目标和本地管理范围。</p>
+                </div>
+                <div class="field-grid">
+                  <label><span>网络标签</span><input id="networkTags" name="networkTags" placeholder="留空自动使用实例名称"></label>
+                  <label class="wide-field"><span>Labels JSON</span><input id="labelsJson" name="labelsJson" value='{"managed_by":"gcp-vm-console"}'></label>
+                </div>
+
+                <label id="startupScriptField" class="full-field" hidden>
+                  <span>自定义 startup script</span>
+                  <textarea id="startupScript" rows="8" placeholder="输入需要在首次启动时执行的脚本" disabled></textarea>
+                </label>
+              </div>
+            </details>
+          </section>
+
+          <aside class="panel summary-panel execution-summary">
+            <div class="section-heading">
+              <div>
+                <h2>执行摘要</h2>
+                <p>这里只显示目标、关键变更和执行风险。</p>
+              </div>
+              <span id="executionPreviewState" class="state-pill draft">无有效预览</span>
+            </div>
+            <div class="execution-summary-grid" aria-label="执行摘要">
+              <div>
+                <span>目标</span>
+                <strong id="executionTarget">尚未选择项目</strong>
+              </div>
+              <div>
+                <span>模式</span>
+                <strong id="executionMode">新建实例</strong>
+              </div>
+            </div>
+            <div class="execution-change-block">
+              <span>关键变更</span>
+              <ul id="executionChanges" class="change-list">
+                <li>等待填写部署信息</li>
+              </ul>
+            </div>
+            <p id="executionRisk" class="inline-note">生成预览只读取云端状态，不会创建或修改实例。</p>
+            <div class="action-stack vertical-actions">
+              <button id="saveDraft" class="secondary" type="button" disabled>保存草稿</button>
+              <button id="savePreview" class="primary" type="button" disabled>保存并生成预览</button>
+            </div>
+            <p class="panel-footnote">执行云端变更前必须拥有最新预览指纹。</p>
+          </aside>
+        </form>
+      </section>
+
+      <section id="page-tasks" data-view="tasks" class="page" hidden>
+        <div class="page-header split">
+          <div>
+            <h1>任务</h1>
+            <p>变更预览、执行进度、节点结果和日志集中在同一任务上下文。</p>
+          </div>
+          <div class="page-action-group">
+            <button id="executePreview" class="primary" type="button" disabled>执行有效预览</button>
+            <p id="previewActionHint" class="action-hint page-action-hint" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <div class="tasks-layout">
+          <section id="taskLogPanel" class="panel log-panel task-log-primary">
+            <div class="section-heading">
+              <div>
+                <h2>运行日志</h2>
+                <p id="currentTaskLabel">当前会话输出，切换页面不会清空。</p>
+              </div>
+              <button id="clearLog" class="secondary compact" type="button">清空</button>
+            </div>
+            <pre id="logOutput" class="log-output" tabindex="0" aria-live="polite"></pre>
+          </section>
+
+          <section id="taskHistory" class="panel task-history-panel">
+            <div class="section-heading">
+              <div>
+                <h2>任务历史</h2>
+                <p>本地保留最多 200 项或 30 天；运行日志仅保留当前会话。</p>
+              </div>
+              <span id="taskHistoryCount" class="count-badge">0 项</span>
+            </div>
+            <div id="taskStorageNotice" class="task-storage-notice" role="status" hidden></div>
+            <div class="table-scroll">
+              <table class="task-history-table">
+                <thead>
+                  <tr>
+                    <th>任务</th>
+                    <th>实例</th>
+                    <th>时间</th>
+                    <th>状态</th>
+                    <th>耗时</th>
+                  </tr>
+                </thead>
+                <tbody id="taskHistoryBody">
+                  <tr><td colspan="5">暂无任务。</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <div class="task-detail-grid">
+            <div class="task-context-column">
+              <section class="panel timeline-panel">
+                <div class="section-heading">
+                  <div>
+                    <h2>任务进度</h2>
+                    <p id="taskTimelineHint">预览指纹失效后必须重新生成。</p>
+                  </div>
+                  <span id="timelineState" class="state-pill draft" aria-live="polite">等待预览</span>
+                </div>
+                <ol id="taskTimeline" class="timeline">
+                  <li data-task-step="draft" class="active"><span>1</span><div><strong>部署</strong><small>保存记录</small></div></li>
+                  <li data-task-step="preview"><span>2</span><div><strong>预览</strong><small>生成指纹</small></div></li>
+                  <li data-task-step="run"><span>3</span><div><strong>执行</strong><small>提交变更</small></div></li>
+                  <li data-task-step="result"><span>4</span><div><strong>结果</strong><small>查看输出</small></div></li>
+                </ol>
+              </section>
+
+              <section class="panel preview-section">
+                <div class="section-heading">
+                  <div>
+                    <h2>变更预览</h2>
+                    <p>只显示当前实例记录对应的最新预览。</p>
+                  </div>
+                  <span id="previewState" class="state-pill draft">无有效预览</span>
+                </div>
+                <div id="previewPanel" class="preview-panel inline-note">先在部署页生成预览。</div>
+              </section>
+            </div>
+
+            <section class="panel task-output-panel">
+              <div class="section-heading">
+                <div>
+                  <h2>执行结果</h2>
+                  <p>选中历史任务后显示摘要、错误和链接。</p>
+                </div>
+                <span id="nodeState" class="state-pill draft" aria-live="polite">未部署</span>
+              </div>
+              <dl id="taskSummary" class="fact-grid summary-facts"></dl>
+              <div id="taskResult" class="task-result inline-note">尚未选择任务。</div>
+              <div id="taskRecovery" class="recovery-panel muted-block">选中验证或部署任务后显示恢复建议。</div>
+              <details id="taskDiagnosticsDetails" class="task-output-disclosure">
+                <summary>
+                  <span>诊断与证据</span>
+                  <small id="taskDiagnosticsSummary">暂无诊断上下文</small>
+                </summary>
+                <div class="task-output-disclosure-body">
+                  <section id="diagnosticSummary" class="diagnostic-summary" aria-labelledby="diagnosticSummaryTitle">
+                    <div class="section-heading split">
+                      <div>
+                        <span class="section-label">诊断</span>
+                        <h2 id="diagnosticSummaryTitle">诊断摘要</h2>
+                        <p id="diagnosticSummaryHint">选择实例或任务后生成可复制摘要。</p>
+                      </div>
+                      <button id="copyDiagnosticSummary" class="secondary compact" type="button">复制摘要</button>
+                    </div>
+                    <dl id="diagnosticSummaryRows" class="fact-grid compact-facts"></dl>
+                  </section>
+                  <div id="evidenceTimeline" class="evidence-timeline" aria-label="证据时间线"></div>
+                </div>
+              </details>
+              <details id="taskArtifactsDetails" class="task-output-disclosure">
+                <summary>
+                  <span>节点与防火墙结果</span>
+                  <small id="taskArtifactsSummary">暂无节点与防火墙结果</small>
+                </summary>
+                <div class="task-output-disclosure-body task-artifact-body">
+                  <div id="nodeResult" class="node-result inline-note">只开实例模式不会生成节点链接。</div>
+                  <div id="firewallResult" class="firewall-result inline-note">防火墙同步结果会在节点部署后显示。</div>
+                </div>
+              </details>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="warpEgressDialog" class="warp-egress-dialog" aria-labelledby="warpEgressTitle">
+    <form method="dialog" class="warp-egress-form">
+      <header class="warp-egress-heading">
+        <div>
+          <h2 id="warpEgressTitle">管理 WARP 出口</h2>
+          <p id="warpEgressSubtitle">当前实例尚未读取实时 WARP 状态。</p>
+        </div>
+        <span id="warpEgressState" class="state-pill draft">待检测</span>
+      </header>
+
+      <dl class="warp-egress-facts" aria-label="WARP 出口状态">
+        <div><dt>IPv4</dt><dd id="warpIpv4" class="warp-egress-value">未获取</dd></div>
+        <div><dt>IPv6</dt><dd id="warpIpv6" class="warp-egress-value">未获取</dd></div>
+        <div><dt>协议</dt><dd id="warpProtocol">未确认</dd></div>
+        <div><dt>代理</dt><dd id="warpProxyPort">未确认</dd></div>
+        <div><dt>机房</dt><dd id="warpColo">未获取</dd></div>
+        <div><dt>证据</dt><dd id="warpCheckedAt">待检测</dd></div>
+      </dl>
+
+      <section class="warp-egress-impact" aria-labelledby="warpAffectedTitle">
+        <div>
+          <h3 id="warpAffectedTitle">受影响节点</h3>
+          <span id="warpAffectedCount">0 个</span>
+        </div>
+        <p id="warpAffectedNodes">尚未识别使用 WARP 的节点。</p>
+      </section>
+
+      <p id="warpLatestAttempt" class="warp-egress-message warning" role="status" hidden></p>
+      <p id="warpReconnectResult" class="warp-egress-message" role="status" aria-live="polite" hidden></p>
+      <p class="warp-egress-notice">仅 WARP 节点预计中断 10–60 秒；直连节点、SSH 和节点链接不受影响。每次确认只执行一轮重连。</p>
+
+      <footer class="warp-egress-actions">
+        <button class="secondary" type="submit" value="cancel">关闭</button>
+        <button id="refreshWarpStatus" class="secondary" type="button" disabled>重新检测</button>
+        <button id="reconnectWarpEgress" class="primary" type="button" disabled>重连并尝试换 IP</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="networkExposureDialog" class="network-exposure-dialog" aria-labelledby="networkExposureTitle">
+    <form method="dialog" class="network-exposure-form">
+      <header class="network-exposure-heading">
+        <div>
+          <span class="section-label">实例网络</span>
+          <h2 id="networkExposureTitle">管理端口与 SSH</h2>
+          <p id="networkExposureSubtitle">选择实例后读取当前监听证据。</p>
+        </div>
+        <span id="networkExposureFreshness" class="state-pill draft">待检查</span>
+      </header>
+
+      <section class="network-exposure-section" aria-labelledby="sshEntryTitle">
+        <div class="network-exposure-section-heading">
+          <h3 id="sshEntryTitle">SSH 双入口</h3>
+          <span id="sshSecretStatus">本地密码未配置</span>
+        </div>
+        <div class="ssh-entry-list">
+          <div class="ssh-entry-row">
+            <strong>22</strong>
+            <span>密钥 + 密码</span>
+            <small>IAP 救援入口</small>
+          </div>
+          <div class="ssh-entry-row">
+            <strong>45400</strong>
+            <span>仅密钥</span>
+            <small>公网主入口</small>
+          </div>
+        </div>
+        <label id="sshPasswordField" class="network-secret-field">
+          <span>本地统一密码</span>
+          <input id="sshUnifiedPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="至少 8 个字符">
+          <small id="sshPasswordHint">只保存在本机受限文件中，不会回显。</small>
+        </label>
+      </section>
+
+      <section class="network-exposure-section" aria-labelledby="publicPortTitle">
+        <div class="network-exposure-section-heading">
+          <h3 id="publicPortTitle">公网端口</h3>
+          <span>仅显示新鲜外部监听</span>
+        </div>
+        <div class="fixed-port-list" aria-label="固定管理端口">
+          <label class="port-choice fixed">
+            <input type="checkbox" checked disabled>
+            <span><strong>TCP 45400</strong><small>SSH 密钥入口，固定保留</small></span>
+          </label>
+          <label class="port-choice">
+            <input id="networkExposurePublic22" type="checkbox">
+            <span><strong>TCP 22</strong><small>可选公网入口，仍需密钥 + 密码</small></span>
+          </label>
+        </div>
+        <div id="networkExposurePortList" class="network-exposure-port-list"></div>
+        <p id="networkExposurePortEmpty" class="network-exposure-empty" hidden>未检测到可选择的节点监听端口。</p>
+      </section>
+
+      <section id="networkExposurePreview" class="network-exposure-preview" aria-live="polite">
+        <strong>尚未生成预览</strong>
+        <span>预览会列出新增、保留、关闭端口和实例隔离优先级。</span>
+      </section>
+
+      <footer class="network-exposure-actions">
+        <button class="secondary" type="submit" value="cancel">关闭</button>
+        <button id="saveNetworkExposurePreview" class="primary" type="button" disabled>生成端口预览</button>
+        <button id="applyNetworkExposure" class="primary" type="button" disabled hidden>应用端口策略</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="actionConfirmDialog" class="action-dialog" aria-labelledby="actionConfirmTitle">
+    <form method="dialog" class="action-dialog-card">
+      <div class="dialog-heading">
+        <span class="section-label">确认操作</span>
+        <h2 id="actionConfirmTitle">确认继续</h2>
+      </div>
+      <div class="dialog-copy">
+        <p id="actionConfirmImpact"></p>
+        <p id="actionConfirmRisk"></p>
+      </div>
+      <label id="actionConfirmVerifyWrap" class="verify-field" hidden>
+        <span>输入 <code id="actionConfirmPhrase"></code> 以确认</span>
+        <input id="actionConfirmInput" type="text" autocomplete="off">
+      </label>
+      <div class="dialog-actions">
+        <button class="secondary" type="submit" value="cancel">取消</button>
+        <button class="primary" type="submit" value="confirm" data-confirm-submit>确认继续</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="/app.js?v=20260716-live-audit-c7"></script>
+</body>
+</html>
