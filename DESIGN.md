@@ -80,7 +80,7 @@ The default theme is dark. Semantic light-theme tokens are maintained in paralle
 - Danger buttons: local record removal or cloud resource deletion.
 - Badges describe source and state, not marketing claims.
 - Logs default to concise status lines in a fixed-height terminal area; raw errors and long links scroll inside their own containers.
-- User-facing task stage details and node firewall actions use Chinese labels; stable protocol names, ports, rule names, and gcloud command names remain technical literals.
+- User-facing task stage details and node firewall actions follow the active interface locale; stable protocol names, ports, rule names, and gcloud command names remain technical literals.
 - Immediate feedback belongs to toasts, durable results belong to task history, and current-session detail belongs to the running log. These channels must not duplicate full result blocks.
 - Cached inventory is shown as one low-density inline notice rather than a new panel. Disabled cloud actions explain that live inventory must recover; local-only actions retain their normal hierarchy.
 

@@ -24,9 +24,13 @@
 
 以下预览来自响应式布局审计的 mock 数据，不包含真实账号、项目、VM、IP 地址或节点链接。
 
-![工作台桌面预览](docs/demo/workbench-1440.png)
+![工作台桌面预览 — 简体中文](docs/demo/workbench-zh-CN-1440.png)
 
-![工作台移动端预览](docs/demo/workbench-390.png)
+[English desktop preview](docs/demo/workbench-en-US-1440.png)
+
+![工作台移动端预览 — 简体中文](docs/demo/workbench-zh-CN-390.png)
+
+[English mobile preview](docs/demo/workbench-en-US-390.png)
 
 ## 安全模型
 

@@ -4,6 +4,140 @@ const STORAGE_KEY = "gcloud-vm-console.locale";
 // These phrases are presentation copy only; the language layer runs at the DOM
 // boundary so existing safety contracts and serialized records remain unchanged.
 const PHRASE_PAIRS = [
+  ["技术详情摘要", "Technical details summary"],
+  ["尚无可用探测证据", "No probe evidence available yet"],
+  ["需要先在实例页选择一台实例。", "Select an instance from the Instances page first."],
+  ["当前选择没有云端实例。", "The current selection has no cloud instance."],
+  ["当前选择没有云端实例，无法执行外部识别。", "The current selection has no cloud instance, so external recognition cannot run."],
+  ["当前选择没有本地记录。", "The current selection has no local record."],
+  ["需要先接管为本地记录。", "Adopt the instance as a local record first."],
+  ["云端删除流程当前未开放。", "Cloud deletion is not currently available."],
+  ["例如 ~/.ssh/google_compute_engine", "For example, ~/.ssh/google_compute_engine"],
+  ["摘要", "summary"],
+  ["例如", "For example"],
+  ["当前选择", "Current selection"],
+  ["本地记录", "Local record"],
+  ["云端实例", "cloud instance"],
+  ["探测证据", "probe evidence"],
+  ["账号读取失败，请重新读取", "Account loading failed; try Reload"],
+  ["本机无法启动 gcloud。请确认已安装 gcloud、已完成登录，然后点击“重新读取”。", "The local gcloud CLI could not start. Confirm that gcloud is installed and signed in, then click \"Reload\"."],
+  ["无法读取本机 gcloud 配置。请检查登录状态或网络，然后点击“重新读取”。", "The local gcloud configuration could not be read. Check the sign-in state or network, then click \"Reload\"."],
+  ["账号与项目读取失败：", "Account and project loading failed: "],
+  ["切换到 English", "Switch to English"],
+  ["已切换到", "Switched to "],
+  ["数据已同步", "Data synced"],
+  ["体检有", "Environment check: "],
+  ["本机", "Local machine"],
+  ["当前账号配置可读取。", "The current account configuration is readable."],
+  ["gcloud 账号", "gcloud account"],
+  ["项目访问", "Project access"],
+  ["当前账号可读取项目。", "The current account can read the project."],
+  ["所需 API", "Required APIs"],
+  ["免费规则", "Free-tier rules"],
+  ["缓存需要更新。", "Cache needs updating."],
+  ["清单同步", "Inventory sync"],
+  ["本地和云端一致。", "Local and cloud match."],
+  ["需处理", "need attention"],
+  ["检查当前实例状态", "Check current instance status"],
+  ["查看当前实例", "View current instance"],
+  ["已校对", "Reviewed"],
+  ["已校对：non-preemptible e2-micro，区域 us-west1 / us-central1 / us-east1，30GB 标准持久磁盘，1GB 出站流量；公网 IPv4 独立计费，超出条件会计费。", "Reviewed: non-preemptible e2-micro, Region us-west1 / us-central1 / us-east1, 30GB standard persistent disk, 1GB egress traffic; public IPv4 billed separately, overage is billed."],
+  ["标准持久磁盘", "standard persistent disk"],
+  ["标准持久", "standard persistent disk"],
+  ["统一实例清单", "Unified instance inventory"],
+  ["已同步", "Synced"],
+  ["期望端口", "Expected port "],
+  ["实际连接", "actual connection "],
+  ["SSH 连接失败，保留历史结果", "SSH connection failed; previous result kept"],
+  ["重新执行只读探测；不会修改云端实例", "Run the read-only probe again; no cloud instance changes"],
+  ["需要先在部署页保存并生成有效预览。", "Save and generate a valid preview on the Deploy page first."],
+  ["首次使用需要输入本地统一 SSH 密码。", "Enter the local shared SSH password for first use."],
+  ["需要先生成有效的端口策略预览。", "Generate a valid port policy preview first."],
+  ["无需部署节点：需要先接管为本地记录，再执行节点部署。", "No node deployment needed: adopt the instance as a local record before node deployment."],
+  ["部署页", "Deploy page"],
+  ["有效预览", "valid preview"],
+  ["本地记录，再执行节点部署", "local record before node deployment"],
+  ["未完成任务", "incomplete tasks"],
+  ["已标记为", "marked as"],
+  ["服务中断", "Service interrupted"],
+  ["任务因服务重启中断，系统未自动续跑；请用只读探测确认实际状态。", "The task was interrupted by a service restart; the system did not resume automatically. Use a read-only probe to confirm actual state."],
+  ["通过 IAP SSH 分阶段执行系统更新", "Run a staged system update over IAP SSH"],
+  ["服务重启恢复", "Service restart recovery"],
+  ["本地服务重启，任务未自动续跑；请先运行只读探测确认云端实际状态。", "The local service restarted and the task did not resume automatically; run a read-only probe to confirm cloud state first."],
+  ["已收集", "Collected"],
+  ["本地服务在任务结束前重启，云端最终状态未确认；未自动重试，请运行只读探测。", "The local service restarted before the task ended; final cloud state is unconfirmed. No automatic retry was attempted; run a read-only probe."],
+  ["任务因服务重启中断", "Task interrupted by service restart"],
+  ["链接保留", "Links retained"],
+  ["到实例页运行现有只读探测，确认 SSH、服务、端口、BBR 和防火墙实际状态。", "Open Instances and run the existing read-only probe to confirm actual SSH, service, port, BBR, and firewall status."],
+  ["中断时间", "Interrupted at"],
+  ["上下文与诊断", "Context and diagnostics"],
+  ["可复制给自己排查或记录当前状态。", "Copy to troubleshoot or record current status."],
+  ["部分通过", "Partially passed"],
+  ["体检项", "Health check"],
+  ["部分实例需要重新验证。", "Some instances need verification again."],
+  ["实例验证", "Instance verification"],
+  ["自定义端口未验证，当前通过", "Custom port unverified; currently connected via"],
+  ["阶段与结果来自本地任务历史；再次执行仍需原有确认。", "Stages and results come from local task history; rerunning still requires the original confirmation."],
+  ["执行部署管线", "Run deployment pipeline"],
+  ["执行所选部署管线并同步端口", "Run the selected deployment pipeline and sync ports"],
+  ["同步防火墙", "Sync firewall"],
+  ["同步部署所需的防火墙端口", "Sync firewall ports required by deployment"],
+  ["先运行智能诊断，确认 SSH、服务、端口、BBR 和防火墙是否可用。", "Run smart diagnostics first to confirm SSH, services, ports, BBR, and firewall availability."],
+  ["只读探测取得状态并写入本地验证结果。", "The read-only probe collects status and writes local verification results."],
+  ["直连", "direct connection"],
+  ["磁盘", "disk"],
+  ["出站流量", "egress traffic"],
+  ["超出条件会计费", "overage is billed"],
+  ["重新执行", "Run again"],
+  ["不会修改", "does not modify"],
+  ["在Tasks结束前重启", "restarted before the task ended"],
+  ["System没有自动续跑或重试。", "The system did not resume or retry automatically."],
+  ["LocalServices", "The local service"],
+  ["连接", "connection"],
+  ["Read-only取Status并写入Local", "The read-only probe collected status and wrote local"],
+  ["结果", "result"],
+  ["本地服务在任务结束前重启，云端最终状态未确认；系统没有自动续跑或重试。", "The local service restarted before the task ended; final cloud status is unconfirmed. The system did not resume or retry automatically."],
+  ["只读探测取状态并写入本地验证结果。", "The read-only probe collected status and wrote local verification results."],
+  ["Read-only探测取Status并写入LocalVerificationresult。", "The read-only probe collected status and wrote local verification results."],
+  ["Read-only取Status并写入Local验证结果。", "The read-only probe collected status and wrote local verification results."],
+  ["取Status", "collected status"],
+  ["取", "collect"],
+  ["Read-only取Status", "The read-only probe collected status"],
+  ["LocalVerificationresult", "local verification result"],
+  ["并", "and"],
+  ["Read-only取StatusandwroteLocalVerificationresult。", "The read-only probe collected status and wrote the local verification result."],
+  ["写入", "wrote"],
+  ["北美出站", "North America egress"],
+  ["北美", "North America"],
+  ["出站", "egress"],
+  ["选择或创建实例", "Select or create an instance"],
+  ["从统一清单选择已有实例，或创建一台新实例。", "Select an existing instance from the unified inventory, or create a new instance."],
+  ["需要先接管为本地记录，再执行节点部署。", "Adopt the instance as a local record before running node deployment."],
+  ["当前实例已有本地记录，无需接管。", "The current instance already has a local record; no adoption is needed."],
+  ["当前", "Current"],
+  ["可读取", "readable"],
+  ["公网", "Public"],
+  ["统一", "Unified"],
+  ["节点部署", "node deployment"],
+  ["选择已有", "Select an existing"],
+  ["环境体检有", "Environment check has"],
+  ["规则", "Rules"],
+  ["项检查", "items checked"],
+  ["项需处理", "items need attention"],
+  ["项需要注意", "items need attention"],
+  ["Environment check有", "Environment check has"],
+  ["5 items检查", "5 items checked"],
+  ["itemsneed attention", "items need attention"],
+  ["，", ", "],
+  ["重新执行Read-only probe; no cloud changesInstances", "Run the read-only probe again; no cloud instance changes"],
+  ["体检", "Environment check"],
+  ["验证", "Verification"],
+  ["Health check: 验证Status", "Health check: verify status"],
+  ["5 items需要注意", "5 items need attention"],
+  ["SSH 实际连接 22（已从 45400 回退）", "SSH actual connection 22 (fell back from 45400)"],
+  ["SSH Custom port unverified; currently connected via 22 连接", "SSH custom port unverified; currently connected via 22"],
+  ["LocalServices在Tasks结束前重启，Cloud最终StatusUnconfirmed; System没有自动续跑或重试。", "The local service restarted before the task ended; final cloud status is unconfirmed. The system did not resume or retry automatically."],
+  ["Read-only取Status并写入Local验证结果。", "The read-only probe collected status and wrote local verification results."],
   ["主导航", "Main navigation"],
   ["全局操作", "Global actions"],
   ["账号 / 项目", "Account / project"],
@@ -555,12 +689,16 @@ function replacePhrases(value, locale) {
   }
   if (locale === "en-US") {
     text = text
+      .replace(/(\d+)\s*分\s*(\d+)\s*秒/g, "$1m $2s")
+      .replace(/(\d+)\s*个\s*(?:Node link|节点链接)/gi, "$1 node link")
       .replace(/(\d+)\s*个问题/g, "$1 issues")
       .replace(/(\d+)\s*项属性/g, "$1 attributes")
       .replace(/(\d+)\s*条(?:脱敏证据|Redacted evidence)/g, "$1 redacted evidence")
       .replace(/(\d+)\s*个$/g, "$1")
       .replace(/(\d+)\s*项运行中/g, "$1 running")
       .replace(/(\d+)\s*项/g, "$1 items")
+      .replace(/(\d+)\s*个(?=\s*[A-Za-z])/g, "$1 ")
+      .replace(/(\d+)\s*条(?=\s*[A-Za-z]|$)/g, "$1 ")
       .replace(/(\d+)\s*个可用区/g, "$1 zones")
       .replace(/(\d+)\s*个节点链接/g, "$1 node links")
       .replace(/(\d+)\s*条节点链接/g, "$1 node links")
@@ -575,6 +713,8 @@ function replacePhrases(value, locale) {
       .replace(/已失败/g, "failed");
   } else {
     text = text
+      .replace(/(\d+)m\s*(\d+)s/g, "$1 分 $2 秒")
+      .replace(/(\d+)\s*node links?/gi, "$1 个节点链接")
       .replace(/(\d+)\s*issues?/gi, "$1 个问题")
       .replace(/(\d+)\s*items?/gi, "$1 项")
       .replace(/(\d+)\s*zones?/gi, "$1 个可用区")
@@ -641,6 +781,7 @@ function translateDom(root, locale) {
   if (root.nodeType === Node.ELEMENT_NODE && (root.hasAttribute("aria-label") || root.hasAttribute("placeholder") || root.hasAttribute("title"))) elements.push(root);
   if (root.querySelectorAll) elements.push(...root.querySelectorAll("[aria-label], [placeholder], [title]"));
   for (const element of elements) {
+    if (element.closest("[data-i18n-ignore]")) continue;
     for (const attribute of ["aria-label", "placeholder", "title"]) {
       if (!element.hasAttribute(attribute)) continue;
       const sources = element.__gcloudI18nAttributes || (element.__gcloudI18nAttributes = {});

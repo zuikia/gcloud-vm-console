@@ -8,7 +8,7 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const pairs = [
   {
     base: "README",
-    required: ["npm --prefix ui ci", "npm --prefix ui run check", "npm --prefix ui run audit:layout", "docs/demo/workbench-1440.png"]
+    required: ["npm --prefix ui ci", "npm --prefix ui run check", "npm --prefix ui run audit:layout", "docs/demo/workbench-en-US-1440.png", "docs/demo/workbench-zh-CN-1440.png"]
   },
   {
     base: "SECURITY",
@@ -54,5 +54,15 @@ test("public documentation has synchronized English and Simplified Chinese pairs
       assert.ok(english.includes(token), `${englishPath} lost required literal ${token}`);
       assert.ok(chinese.includes(token), `${chinesePath} lost required literal ${token}`);
     }
+  }
+  for (const preview of [
+    "docs/demo/workbench-en-US-1440.png",
+    "docs/demo/workbench-en-US-390.png",
+    "docs/demo/workbench-zh-CN-1440.png",
+    "docs/demo/workbench-zh-CN-390.png"
+  ]) {
+    assert.doesNotThrow(() => statSync(path.join(projectRoot, preview)), `${preview} is missing`);
+    assert.ok(read("README.md").includes(preview), `README.md must link ${preview}`);
+    assert.ok(read("README.zh-CN.md").includes(preview), `README.zh-CN.md must link ${preview}`);
   }
 });

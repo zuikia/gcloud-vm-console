@@ -6,6 +6,7 @@
     "start": "node server.js",
     "check": "node scripts/check.mjs",
     "audit:layout": "node test/browser-layout-audit.mjs",
+    "audit:i18n": "node test/browser-i18n-audit.mjs",
     "audit:performance": "node scripts/performance-audit.mjs",
     "audit:performance:browser": "node scripts/browser-performance-audit.mjs",
     "cleanup:local": "node scripts/local-cleanup.mjs",

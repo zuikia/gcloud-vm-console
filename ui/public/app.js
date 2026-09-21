@@ -1028,6 +1028,42 @@ async function loadAccounts({ preferDefault = false } = {}) {
   renderContext();
 }
 
+function resetAccountContextAfterLoadFailure() {
+  state.accounts = [];
+  state.projects = [];
+  state.activeProjects = [];
+  state.pendingContext = { ...DEFAULT_CONTEXT };
+  state.context = null;
+  resetSelectedVmContext({ render: false });
+  const accountSelect = $("#accountSelect");
+  const projectSelect = $("#projectSelect");
+  if (accountSelect) {
+    accountSelect.replaceChildren();
+    accountSelect.disabled = true;
+  }
+  if (projectSelect) {
+    projectSelect.innerHTML = '<option value="">没有可用项目</option>';
+    projectSelect.disabled = true;
+  }
+}
+
+function accountLoadFailureMessage(error) {
+  if (error?.code === "gcloud_unavailable" || /gcloud.*(?:启动|available)|spawn.*gcloud/i.test(error?.message || "")) {
+    return "本机无法启动 gcloud。请确认已安装 gcloud、已完成登录，然后点击“重新读取”。";
+  }
+  return "无法读取本机 gcloud 配置。请检查登录状态或网络，然后点击“重新读取”。";
+}
+
+function handleAccountLoadFailure(error) {
+  resetAccountContextAfterLoadFailure();
+  const guidance = accountLoadFailureMessage(error);
+  renderContext();
+  $("#contextHint").textContent = guidance;
+  setSyncState("账号读取失败，请重新读取", "warn");
+  setInlineError(`账号与项目读取失败：${guidance}`);
+  return error;
+}
+
 async function loadProjects({ preferDefault = false } = {}) {
   const account = selectedAccountFromControl();
   const configuration = accountConfiguration(account);
@@ -3060,7 +3096,12 @@ function bindEvents() {
   document.addEventListener("click", handleDelegatedRowInteraction);
   document.addEventListener("keydown", handleDelegatedRowInteraction);
   $("#reloadAccounts").addEventListener("click", (event) => withBusyButton(event.currentTarget, async () => {
-    await loadAccounts();
+    try {
+      await loadAccounts();
+    } catch (error) {
+      handleAccountLoadFailure(error);
+      throw error;
+    }
     toast("账号与项目已重新读取", "success");
   }, "正在读取本机 gcloud 配置"));
   $("#accountSelect").addEventListener("change", () => {
@@ -3249,30 +3290,33 @@ async function boot() {
   renderEvidenceTimeline();
   bindEvents();
   showRoute();
+  let health;
   try {
-    const health = await api("/api/health");
-    state.serviceReady = true;
-    $("#serviceState").textContent = "本地服务正常";
-    $("#serviceState").className = "state-pill running";
-    setSyncState("等待选择上下文");
-    log(`服务模式: ${health.mode || "unknown"}`);
-    await Promise.all([
-      loadJobs().catch((error) => log(`任务历史读取失败: ${error.message}`)),
-      loadSshAuthStatus().catch((error) => log(`本地 SSH 密码状态读取失败: ${error.message}`)),
-      loadAccounts({ preferDefault: true })
-    ]);
-    if (shouldAutoApplyPreferredContext()) {
-      await useSelectedContext().catch((error) => {
-        setSyncState("默认项目自动切换失败", "warn");
-        log(`默认项目自动切换失败: ${error.message}`);
-      });
-    }
+    health = await api("/api/health");
   } catch (error) {
+    state.serviceReady = false;
     $("#serviceState").textContent = "本地服务不可用";
     $("#serviceState").className = "state-pill error";
     setSyncState("本地服务不可用", "error");
     toast(`服务不可用: ${error.message}`, "error");
     log(`服务不可用: ${error.message}`);
+    return;
+  }
+  state.serviceReady = true;
+  $("#serviceState").textContent = "本地服务正常";
+  $("#serviceState").className = "state-pill running";
+  setSyncState("等待选择上下文");
+  log(`服务模式: ${health.mode || "unknown"}`);
+  await Promise.all([
+    loadJobs().catch((error) => log(`任务历史读取失败: ${error.message}`)),
+    loadSshAuthStatus().catch((error) => log(`本地 SSH 密码状态读取失败: ${error.message}`)),
+    loadAccounts({ preferDefault: true }).catch((error) => handleAccountLoadFailure(error))
+  ]);
+  if (shouldAutoApplyPreferredContext()) {
+    await useSelectedContext().catch((error) => {
+      setSyncState("默认项目自动切换失败", "warn");
+      log(`默认项目自动切换失败: ${error.message}`);
+    });
   }
 }
 

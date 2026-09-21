@@ -24,6 +24,18 @@ test("i18n does not alter IDs, URLs, ports, or command names", () => {
   assert.equal(translateText(value, "en-US"), value);
 });
 
+test("i18n translates dynamic aria, title, and placeholder copy as complete phrases", () => {
+  const translated = translateText(
+    "技术详情摘要 | 需要先在实例页选择一台实例。 | 云端删除流程当前未开放。 | 例如 ~/.ssh/google_compute_engine",
+    "en-US"
+  );
+  assert.equal(
+    translated,
+    "Technical details summary | Select an instance from the Instances page first. | Cloud deletion is not currently available. | For example, ~/.ssh/google_compute_engine"
+  );
+  assert.doesNotMatch(translated, /[\u4e00-\u9fff]/);
+});
+
 test("i18n translates every static Chinese text node in the public shell", () => {
   const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
   const nodes = [...html.matchAll(/>([^<>]*[\u4e00-\u9fff][^<>]*)</g)].map((match) => match[1].trim()).filter(Boolean);

@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const BASE_URL = process.env.UI_AUDIT_URL || "http://127.0.0.1:8787";
 const VIEWPORTS = [1728, 1440, 1280, 1024, 768, 390];
@@ -99,7 +99,7 @@ function staticAudit() {
   return issues;
 }
 
-async function installFixtures(page) {
+export async function installFixtures(page) {
   await page.route("**/api/health", (route) => route.fulfill({
     contentType: "application/json",
     body: JSON.stringify({
@@ -668,7 +668,7 @@ async function selectResourceByName(page, name) {
   );
 }
 
-async function prepareContext(page, { selectResource = true, fresh = false } = {}) {
+export async function prepareContext(page, { selectResource = true, fresh = false } = {}) {
   const freshQuery = fresh ? `?layoutAudit=${Date.now()}-${Math.random().toString(16).slice(2)}` : "";
   await page.goto(`${BASE_URL}/${freshQuery}#workbench`, { waitUntil: "networkidle" });
   await page.waitForSelector('[data-view="workbench"]:not([hidden])', { timeout: 5000 });
@@ -1612,7 +1612,7 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function ensureServer() {
+export async function ensureServer() {
   if (await healthCheck()) return null;
   const child = spawn(process.execPath, ["server.js"], {
     cwd: uiRoot,
@@ -1630,6 +1630,7 @@ async function ensureServer() {
   throw new Error(`UI server is not reachable at ${BASE_URL}. ${stderr.trim() || "Start failed."}`);
 }
 
+async function main() {
 const staticIssues = staticAudit();
 if (staticIssues.length) {
   console.error(staticIssues.join("\n"));
@@ -1651,3 +1652,6 @@ try {
 } finally {
   if (spawnedServer) spawnedServer.kill();
 }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();

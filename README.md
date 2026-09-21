@@ -30,9 +30,13 @@ are authorized to administer.
 These previews use mock data from the responsive layout audit; they do not show
 a real account, project, VM, IP address, or node link.
 
-![Workbench desktop preview](docs/demo/workbench-1440.png)
+![Workbench desktop preview — English](docs/demo/workbench-en-US-1440.png)
 
-![Workbench mobile preview](docs/demo/workbench-390.png)
+[简体中文桌面预览](docs/demo/workbench-zh-CN-1440.png)
+
+![Workbench mobile preview — English](docs/demo/workbench-en-US-390.png)
+
+[简体中文移动端预览](docs/demo/workbench-zh-CN-390.png)
 
 ## Safety model
 
