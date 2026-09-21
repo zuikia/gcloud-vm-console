@@ -41,10 +41,16 @@ _本地运行、以安全为先的 Google Cloud VM 运维工作台。_
 - 只读流程与云端写流程在服务端和界面中分离。
 - 云端写操作必须满足：当前预览有效、指纹匹配、任务锁可用，并且用户明确确认。
 - 项目没有云端删除接口。
+- 本地 API 不提供用户身份认证，只应绑定在本机 loopback；不要把 8787
+  端口暴露给其他设备。非 loopback Origin 会被拒绝，但这不能替代网络访问控制。
 - SSH 密码只保存在本地受限 Secret Store 中，不写入记录、日志、命令参数或云端元数据。
 - 实时验收只能针对操作者拥有或获授权检查的基础设施。
 
 连接任何项目之前，请先阅读 [安全政策](SECURITY.zh-CN.md)。
+
+自定义启动脚本会写入 Compute Engine 实例 metadata，并在 Linux VM 每次启动时以
+`root` 执行。请保证脚本可重复执行、不要包含密钥，并在创建后检查 guest-agent
+日志；控制台不会验证脚本是否成功，也不会自动开放脚本需要的端口。
 
 ## 环境要求
 
@@ -52,8 +58,23 @@ _本地运行、以安全为先的 Google Cloud VM 运维工作台。_
 - npm
 - Google Cloud SDK（`gcloud`）
 - 一个拥有目标 Compute Engine 项目访问权限的 gcloud 配置
+- 用于运行辅助脚本的 macOS/Linux shell，并提供 `bash`、`lsof` 和 `curl`
 
 项目不会创建账号、登录 Google Cloud，也不会把本地记录上传到远程服务。
+
+## 快速开始
+
+打开控制台前，先准备一个专用的本地 gcloud 配置（请将占位符替换为你自己的值）：
+
+```bash
+gcloud auth login
+gcloud config configurations create gvc-local --no-activate
+gcloud config set account YOUR_ACCOUNT --configuration=gvc-local
+gcloud config set project YOUR_PROJECT_ID --configuration=gvc-local
+./scripts/start-ui.sh
+```
+
+控制台会列出可用的 gcloud 配置和账号；在界面切换项目时不会修改全局 active configuration。
 
 ## 本地运行
 
@@ -83,6 +104,7 @@ npm --prefix ui run check
 ```bash
 npm --prefix ui run audit:layout
 npm --prefix ui run audit:i18n
+npm --prefix ui run audit:context
 npm --prefix ui run audit:performance:browser
 ```
 

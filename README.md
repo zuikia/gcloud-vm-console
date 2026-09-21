@@ -48,12 +48,20 @@ a real account, project, VM, IP address, or node link.
 - Cloud writes require a current preview, a matching fingerprint, a task lock,
   and explicit user confirmation.
 - There is no cloud-delete endpoint.
+- The local API is an unauthenticated loopback service; do not expose port 8787
+  beyond the local machine. Browser requests from non-loopback origins are
+  rejected, but this is not a replacement for network access control.
 - SSH passwords are stored only in a local restricted Secret Store and are not
   written to records, logs, command arguments, or cloud metadata.
 - Live acceptance checks must target infrastructure that the operator owns or
   is authorized to review.
 
 Read [SECURITY.md](SECURITY.md) before connecting the console to a project.
+
+Custom startup scripts are copied into Compute Engine instance metadata and run
+as `root` on every Linux VM boot. Keep them idempotent, exclude secrets, and
+check the guest-agent logs after creation; the console does not verify script
+success or open ports required by the script.
 
 ## Requirements
 
@@ -62,9 +70,26 @@ Read [SECURITY.md](SECURITY.md) before connecting the console to a project.
 - Google Cloud SDK (`gcloud`)
 - A gcloud configuration with access to the Compute Engine projects you intend
   to manage
+- A macOS/Linux shell with `bash`, `lsof`, and `curl` for the helper scripts
 
 The console does not create an account, log in to Google Cloud, or upload local
 records to a remote service.
+
+## Quick start
+
+Authenticate and prepare a dedicated local configuration before opening the
+console (replace the placeholders with your own values):
+
+```bash
+gcloud auth login
+gcloud config configurations create gvc-local --no-activate
+gcloud config set account YOUR_ACCOUNT --configuration=gvc-local
+gcloud config set project YOUR_PROJECT_ID --configuration=gvc-local
+./scripts/start-ui.sh
+```
+
+The console lists every available gcloud configuration and account. It does
+not change the global active configuration when you switch projects in the UI.
 
 ## Run locally
 
@@ -99,6 +124,7 @@ when a Playwright browser is installed:
 ```bash
 npm --prefix ui run audit:layout
 npm --prefix ui run audit:i18n
+npm --prefix ui run audit:context
 npm --prefix ui run audit:performance:browser
 ```
 

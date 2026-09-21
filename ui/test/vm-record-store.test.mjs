@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -44,6 +44,27 @@ test("VM record store persists one structured record atomically", async (t) => {
   const stored = JSON.parse(await readFile(path.join(rootDir, saved.id, "record.json"), "utf8"));
   assert.deepEqual(stored, saved);
   assert.deepEqual((await readdir(path.join(rootDir, saved.id))).sort(), ["record.json"]);
+});
+
+test("VM record store hardens existing roots, record directories, and files", async (t) => {
+  const { rootDir, store } = await withStore(t);
+  await chmod(rootDir, 0o755);
+  const saved = await store.save({ status: "draft", identity: identityA, desired: {} });
+  const recordDir = path.join(rootDir, saved.id);
+  const recordPath = path.join(recordDir, "record.json");
+  await chmod(rootDir, 0o755);
+  await chmod(recordDir, 0o755);
+  await chmod(recordPath, 0o644);
+
+  assert.ok(await store.get(saved.id));
+  assert.equal((await stat(rootDir)).mode & 0o777, 0o700);
+  assert.equal((await stat(recordDir)).mode & 0o777, 0o700);
+  assert.equal((await stat(recordPath)).mode & 0o777, 0o600);
+
+  await store.save({ ...saved, desired: { machineType: "e2-micro" } });
+  assert.equal((await stat(rootDir)).mode & 0o777, 0o700);
+  assert.equal((await stat(recordDir)).mode & 0o777, 0o700);
+  assert.equal((await stat(recordPath)).mode & 0o777, 0o600);
 });
 
 test("VM record store preserves createdAt and replaces record state on save", async (t) => {

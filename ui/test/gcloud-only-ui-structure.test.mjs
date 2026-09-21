@@ -538,9 +538,9 @@ test("new instance firewall tags default to the instance name instead of a share
 });
 
 test("new node deployments explicitly configure a selected non-default SSH port while vm-only stays descriptive", () => {
-  assert.match(app, /configureSshPort:\s*deployMethod !== "vm_only" && sshPort !== 22/);
+  assert.match(app, /configureSshPort:\s*\["singbox_plus", "three_x_ui"\]\.includes\(deployMethod\) && sshPort !== 22/);
   assert.match(app, /节点部署时配置并保留 22 救援/);
-  assert.match(app, /只开实例不会自动修改 sshd/);
+  assert.match(app, /控制台不会自动修改 sshd/);
 });
 
 test("new public VMs persist and summarize the selected network profile", () => {

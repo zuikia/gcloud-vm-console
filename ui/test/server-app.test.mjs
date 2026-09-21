@@ -92,7 +92,7 @@ async function setup(t, overrides = {}) {
       }
     },
     runner,
-    changeExecutor: createChangeExecutor({ runner, inventory, recordStore, taskLock: createTaskLock(), now: () => "2026-06-17T12:00:00.000Z" }),
+    changeExecutor: overrides.changeExecutor || createChangeExecutor({ runner, inventory, recordStore, taskLock: createTaskLock(), now: () => "2026-06-17T12:00:00.000Z" }),
     inventory: overrides.inventory || inventory,
     jobStore,
     maintenanceService: overrides.maintenanceService || {
@@ -979,6 +979,34 @@ test("server app saves a draft, generates a fingerprinted preview, and executes 
   assert.equal(executed.body.job.result.status, "succeeded");
   assert.equal(runnerCalls.length, 1);
   assert.deepEqual(runnerCalls[0].command.slice(0, 4), ["compute", "instances", "create", "vm-a"]);
+});
+
+test("server app sanitizes execute errors before returning or persisting the job", async (t) => {
+  const { app, recordStore } = await setup(t, {
+    changeExecutor: {
+      async execute() {
+        throw new Error("token=super-secret /Users/example/.ssh/private-key");
+      }
+    }
+  });
+  const saved = await recordStore.save({
+    status: "draft",
+    identity,
+    desired,
+    preview: { fingerprint: "preview-error", actions: [] }
+  });
+
+  const response = await app.dispatch({
+    method: "POST",
+    url: `/api/vm-records/${saved.id}/execute`,
+    body: { previewFingerprint: "preview-error", idempotencyKey: "api-error-1" }
+  });
+
+  assert.equal(response.status, 500);
+  assert.equal(response.body.error, "服务器内部错误");
+  assert.equal(response.body.errorCategory, "generic");
+  assert.doesNotMatch(JSON.stringify(response.body), /super-secret|private-key/);
+  assert.doesNotMatch(JSON.stringify(response.body.job), /super-secret|private-key/);
 });
 
 test("server app deletes only the local VM record through the local delete endpoint", async (t) => {

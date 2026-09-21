@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export const ALWAYS_FREE_REGION_IDS = new Set(["us-west1", "us-central1", "us-east1"]);
@@ -163,9 +163,19 @@ function cachePath(cacheDir) {
   return path.join(cacheDir, "region-catalog.json");
 }
 
-async function readCache(cacheDir) {
+function cacheMatchesContext(catalog, context = {}) {
+  const source = catalog?.source || {};
+  return ["account", "projectId", "configuration"].every((key) => (
+    String(source[key] || "") === String(context[key] || "")
+  ));
+}
+
+async function readCache(cacheDir, context = {}) {
   try {
-    return JSON.parse(await readFile(cachePath(cacheDir), "utf8"));
+    await chmod(cacheDir, 0o700);
+    await chmod(cachePath(cacheDir), 0o600);
+    const cached = JSON.parse(await readFile(cachePath(cacheDir), "utf8"));
+    return cacheMatchesContext(cached, context) ? cached : null;
   } catch {
     return null;
   }
@@ -173,7 +183,9 @@ async function readCache(cacheDir) {
 
 async function writeCache(cacheDir, catalog) {
   await mkdir(cacheDir, { recursive: true });
-  await writeFile(cachePath(cacheDir), `${JSON.stringify(catalog, null, 2)}\n`);
+  await chmod(cacheDir, 0o700);
+  await writeFile(cachePath(cacheDir), `${JSON.stringify(catalog, null, 2)}\n`, { mode: 0o600 });
+  await chmod(cachePath(cacheDir), 0o600);
 }
 
 export function firstZoneForRegion(catalog, regionId, preferredZone = "") {
@@ -214,7 +226,7 @@ export function createRegionCatalog({ runner, cacheDir, now = () => new Date().t
       await writeCache(cacheDir, catalog);
       return catalog;
     } catch (error) {
-      const cached = await readCache(cacheDir);
+      const cached = await readCache(cacheDir, context);
       if (cached) {
         return {
           ...cached,

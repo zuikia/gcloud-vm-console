@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { normalizeVmIdentity, recordIdForIdentity } from "./vm-identity.js";
@@ -60,8 +60,31 @@ export function createVmRecordStore({ rootDir, now = () => new Date().toISOStrin
     return path.join(recordDirectory(id), "record.json");
   }
 
+  async function hardenExistingDirectory(directory) {
+    try {
+      await chmod(directory, 0o700);
+      return true;
+    } catch (error) {
+      if (error?.code === "ENOENT") return false;
+      throw error;
+    }
+  }
+
+  async function hardenExistingFile(filePath) {
+    try {
+      await chmod(filePath, 0o600);
+      return true;
+    } catch (error) {
+      if (error?.code === "ENOENT") return false;
+      throw error;
+    }
+  }
+
   async function get(id) {
     const safeId = assertRecordId(id);
+    await hardenExistingDirectory(absoluteRoot);
+    await hardenExistingDirectory(recordDirectory(safeId));
+    await hardenExistingFile(recordPath(safeId));
     try {
       const parsed = JSON.parse(await readFile(recordPath(safeId), "utf8"));
       return normalizeRecord(parsed, parsed, parsed.updatedAt || now());
@@ -77,10 +100,15 @@ export function createVmRecordStore({ rootDir, now = () => new Date().toISOStrin
     const existing = await get(id);
     const record = normalizeRecord({ ...input, identity, id }, existing, now());
     const directory = recordDirectory(id);
+    await mkdir(absoluteRoot, { recursive: true, mode: 0o700 });
+    await chmod(absoluteRoot, 0o700);
     await mkdir(directory, { recursive: true });
+    await chmod(directory, 0o700);
     const temporaryPath = path.join(directory, `.record-${process.pid}-${Date.now()}.tmp`);
     await writeFile(temporaryPath, `${JSON.stringify(record, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+    await chmod(temporaryPath, 0o600);
     await rename(temporaryPath, recordPath(id));
+    await chmod(recordPath(id), 0o600);
     return record;
   }
 
@@ -88,6 +116,7 @@ export function createVmRecordStore({ rootDir, now = () => new Date().toISOStrin
     const account = String(scope.account || "").toLowerCase();
     const projectId = String(scope.projectId || "").toLowerCase();
     return reads.run(`list:${account}:${projectId}`, async () => {
+    await hardenExistingDirectory(absoluteRoot);
     let entries;
     try {
       entries = await readdir(absoluteRoot, { withFileTypes: true });
@@ -99,6 +128,7 @@ export function createVmRecordStore({ rootDir, now = () => new Date().toISOStrin
     const records = [];
     for (const entry of entries) {
       if (!entry.isDirectory() || !RECORD_ID_PATTERN.test(entry.name)) continue;
+      await hardenExistingDirectory(path.join(absoluteRoot, entry.name));
       const record = await get(entry.name);
       if (!record) continue;
       if (account && record.identity.account !== account) continue;
@@ -111,6 +141,7 @@ export function createVmRecordStore({ rootDir, now = () => new Date().toISOStrin
 
   async function remove(id) {
     const safeId = assertRecordId(id);
+    await hardenExistingDirectory(absoluteRoot);
     const existing = await get(safeId);
     if (!existing) return false;
     await rm(recordDirectory(safeId), { recursive: true, force: false });

@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdir } from "node:fs/promises";
+import { chmod, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,7 +14,7 @@ import { createGcloudRunner } from "./server/gcloud-runner.js";
 import { createJobStore } from "./server/job-store.js";
 import { createInventorySnapshotStore } from "./server/inventory-snapshot-store.js";
 import { createLocalSecretStore } from "./server/local-secret-store.js";
-import { readJsonBody, toPublicHttpError } from "./server/http-runtime.js";
+import { assertAllowedLoopbackOrigin, readJsonBody, toPublicHttpError } from "./server/http-runtime.js";
 import { createMaintenanceService } from "./server/maintenance-service.js";
 import { createNodePipeline } from "./server/node-pipeline.js";
 import { createNetworkExposureService } from "./server/network-exposure-service.js";
@@ -39,9 +39,10 @@ const secretsRoot = path.join(projectRoot, ".gcp-vm-console", "secrets");
 const port = Number(process.env.PORT || 8787);
 const runtimeRevision = computeRuntimeRevision({ uiRoot });
 
-await mkdir(dataRoot, { recursive: true });
-await mkdir(jobsRoot, { recursive: true });
-await mkdir(cacheRoot, { recursive: true });
+for (const directory of [dataRoot, jobsRoot, cacheRoot]) {
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  await chmod(directory, 0o700);
+}
 
 const runner = createGcloudRunner();
 const inventorySnapshotStore = createInventorySnapshotStore({ rootDir: inventoryCacheRoot });
@@ -118,6 +119,7 @@ const server = createServer(async (req, res) => {
     }
     const url = new URL(req.url || "/", "http://localhost");
     if (url.pathname.startsWith("/api/")) {
+      assertAllowedLoopbackOrigin(req.headers.origin, { port });
       const body = req.method === "GET" || req.method === "HEAD" ? undefined : await readJsonBody(req);
       const result = await app.dispatch({ method: req.method, url: req.url, body });
       sendJson(res, result.status, result.body);

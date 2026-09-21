@@ -149,6 +149,8 @@ const {
 
 let activeRoute = "";
 const contextRefreshCoordinator = createRequestCoordinator();
+let projectsLoadSequence = 0;
+let projectsLoadController = null;
 
 if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
@@ -430,7 +432,8 @@ function routeFromHash() {
 }
 
 function showRoute(route = routeFromHash()) {
-  const normalized = ["workbench", "resources", "config", "tasks"].includes(route) ? route : "workbench";
+  let normalized = ["workbench", "resources", "config", "tasks"].includes(route) ? route : "workbench";
+  if (["resources", "config"].includes(normalized) && !contextReady()) normalized = "workbench";
   const changed = activeRoute && activeRoute !== normalized;
   $$("[data-view]").forEach((view) => { view.hidden = view.dataset.view !== normalized; });
   $$("[data-route]").forEach((link) => {
@@ -468,9 +471,18 @@ function currentProjectId() {
   return state.pendingContext.projectId || "";
 }
 
+function contextKey(context = {}) {
+  return [context.configuration, context.account, context.projectId].join("::");
+}
+
+function pendingContextMatchesActive() {
+  return Boolean(state.context && contextKey(state.context) === contextKey(state.pendingContext));
+}
+
 function contextReady() {
   const context = state.context;
   if (!context?.configuration || !context.account || !context.projectId) return false;
+  if (!pendingContextMatchesActive()) return false;
   const accountAvailable = state.accounts.some((account) => (
     accountConfiguration(account) === context.configuration && account.account === context.account
   ));
@@ -679,10 +691,23 @@ function renderStaticOptions() {
 }
 
 function renderContextScope() {
-  const text = state.context ? `${state.context.account} / ${state.context.projectId}` : "尚未选择";
-  $("#currentScope").textContent = text;
+  const activeText = state.context
+    ? `${state.context.configuration} / ${state.context.account} / ${state.context.projectId}`
+    : "尚未选择";
+  const pendingText = state.pendingContext?.configuration && state.pendingContext?.account
+    ? `${state.pendingContext.configuration} / ${state.pendingContext.account}${state.pendingContext.projectId ? ` / ${state.pendingContext.projectId}` : ""}`
+    : "";
+  const pendingMismatch = Boolean(state.context && pendingText && !pendingContextMatchesActive());
+  $("#currentScope").textContent = activeText;
   if (!state.serviceReady) setSyncState("本地服务未连接", "error");
-  else if (!contextReady()) setSyncState("等待选择上下文");
+  else if (pendingMismatch) {
+    setSyncState("已选择其他项目，请切换", "warn");
+    $("#contextHint").textContent = pendingText
+      ? `已选择 ${pendingText}。点击“切换到此项目”后才会读取该项目的资源。`
+      : "已选择其他 gcloud 配置，请等待项目列表读取完成。";
+  } else if (!contextReady()) setSyncState("等待选择上下文");
+  else if (state.inventoryMeta?.source === "live") setSyncState("数据已同步", "success");
+  else setSyncState("等待同步资源");
 }
 
 function renderContext() {
@@ -1023,6 +1048,19 @@ async function loadAccounts({ preferDefault = false } = {}) {
   if (defaultIndex >= 0) $("#accountSelect").selectedIndex = defaultIndex;
   else if (previousIndex >= 0) $("#accountSelect").selectedIndex = previousIndex;
   $("#accountSelect").disabled = state.accounts.length === 0;
+  if (!state.accounts.length) {
+    state.projects = [];
+    state.activeProjects = [];
+    state.pendingContext = { ...DEFAULT_CONTEXT };
+    state.context = null;
+    resetSelectedVmContext({ render: false });
+    $("#projectSelect").innerHTML = '<option value="">没有可用项目</option>';
+    $("#projectSelect").disabled = true;
+    $("#contextHint").textContent = "当前配置没有可用账号，请先在本机完成 gcloud 登录。";
+    renderResources({ renderRelated: false });
+    renderContext();
+    return;
+  }
   updatePendingContextFromSelects({ projectId: "" });
   await loadProjects({ preferDefault });
   renderContext();
@@ -1065,9 +1103,14 @@ function handleAccountLoadFailure(error) {
 }
 
 async function loadProjects({ preferDefault = false } = {}) {
+  const requestId = ++projectsLoadSequence;
+  projectsLoadController?.abort();
+  const controller = new AbortController();
+  projectsLoadController = controller;
   const account = selectedAccountFromControl();
   const configuration = accountConfiguration(account);
   if (!configuration || !account?.account) {
+    if (requestId !== projectsLoadSequence) return { stale: true };
     state.projects = [];
     state.pendingContext = { configuration: "", account: "", projectId: "" };
     $("#projectSelect").innerHTML = "<option value=\"\">没有可用项目</option>";
@@ -1076,12 +1119,15 @@ async function loadProjects({ preferDefault = false } = {}) {
     renderContext();
     return;
   }
+  const accountKey = `${configuration}::${account.account}`;
+  state.projects = [];
   $("#projectSelect").disabled = true;
   $("#projectSelect").innerHTML = "<option value=\"\">正在读取项目...</option>";
   let data;
   try {
-    data = await api(`/api/projects?configuration=${encodeURIComponent(configuration)}&account=${encodeURIComponent(account.account)}`);
+    data = await api(`/api/projects?configuration=${encodeURIComponent(configuration)}&account=${encodeURIComponent(account.account)}`, { signal: controller.signal });
   } catch (error) {
+    if (requestId !== projectsLoadSequence || isAbortError(error)) return { stale: true };
     state.projects = [];
     updatePendingContextFromSelects({ projectId: "" });
     $("#projectSelect").innerHTML = "<option value=\"\">项目读取失败</option>";
@@ -1089,6 +1135,9 @@ async function loadProjects({ preferDefault = false } = {}) {
     renderContext();
     throw error;
   }
+  const current = selectedAccountFromControl();
+  if (requestId !== projectsLoadSequence
+    || `${accountConfiguration(current)}::${current?.account || ""}` !== accountKey) return { stale: true };
   state.projects = data.projects || [];
   if (state.projects.length) {
     setSelectOptions($("#projectSelect"), state.projects, (item) => `${item.projectId} ${item.name ? `- ${item.name}` : ""}`, "projectId");
@@ -1108,7 +1157,24 @@ async function loadProjects({ preferDefault = false } = {}) {
     $("#projectSelect").value = selectedProjectId;
   }
   updatePendingContextFromSelects({ projectId: $("#projectSelect").value || "" });
+  clearPendingContextResources();
   renderContext();
+  if (state.context && pendingContextMatchesActive()) {
+    await refreshResources().catch((error) => log(`重新读取实例清单失败: ${error.message}`));
+  }
+  return { stale: false };
+}
+
+function clearPendingContextResources() {
+  if (!state.context || pendingContextMatchesActive()) return;
+  contextRefreshCoordinator.cancel();
+  resetSelectedVmContext({ render: false });
+  renderResources({ renderRelated: false });
+  renderOverview();
+  renderDoctorPanel();
+  renderDiagnosticSummary();
+  renderEvidenceTimeline();
+  if (["resources", "config"].includes(activeRoute)) showRoute("workbench");
 }
 
 function resetSelectedVmContext({ render = true } = {}) {
@@ -2189,6 +2255,11 @@ function configValidation() {
   const view = currentNetworkProfileView();
   if (!view.valid) return { valid: false, reason: view.reason };
   if (!$("#configForm")?.checkValidity()) return { valid: false, reason: "请检查实例名称、端口和网络字段格式。" };
+  if (selectedDeployMethod() === "custom_startup") {
+    const script = String($("#startupScript")?.value || "");
+    if (!script.trim()) return { valid: false, reason: "自定义脚本不能为空，请填写启动脚本。" };
+    if (new TextEncoder().encode(script).byteLength > 64 * 1024) return { valid: false, reason: "自定义脚本不能超过 64 KiB。" };
+  }
   return { valid: true, reason: "" };
 }
 
@@ -2253,7 +2324,8 @@ function formDesired() {
     },
     deploy: {
       method: deployMethod,
-      configureSshPort: deployMethod !== "vm_only" && sshPort !== 22
+      configureSshPort: ["singbox_plus", "three_x_ui"].includes(deployMethod) && sshPort !== 22,
+      ...(deployMethod === "custom_startup" ? { startupScript: String($("#startupScript").value || "") } : {})
     },
     ssh: {
       user: $("#sshUser").value || "y",
@@ -2289,18 +2361,20 @@ function renderConfigSummary() {
   ];
   if (networkView.profile?.addressName) changes.push(`静态地址：${networkView.profile.addressName}`);
   if (sshPort !== 22) {
-    changes.push(deployMethod === "vm_only"
-      ? `SSH：期望 ${sshPort}，只开实例不会自动修改 sshd`
+    changes.push(["vm_only", "custom_startup"].includes(deployMethod)
+      ? `SSH：期望 ${sshPort}，控制台不会自动修改 sshd`
       : `SSH：${sshPort}，节点部署时配置并保留 22 救援`);
   }
-  if (deployMethod === "custom_startup") changes.push(`startup script: ${hashText($("#startupScript").value)}`);
+  if (deployMethod === "custom_startup") changes.push(`startup script: ${hashText($("#startupScript").value)}（每次启动时执行）`);
 
   $("#executionTarget").textContent = target;
   $("#executionMode").textContent = $("#configMode").textContent || "新建实例";
   $("#executionChanges").innerHTML = changes.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
   const baseRisk = deployMethod === "vm_only"
     ? "只开实例模式不会安装代理软件；生成预览只读取云端状态，不会创建或修改实例。"
-    : "节点部署会在实例创建后运行远程安装流程，并按结果同步防火墙端口；执行前必须重新确认。";
+    : deployMethod === "custom_startup"
+      ? "启动脚本会写入云端 metadata，并在每次启动时以 root 执行；请勿包含密钥。控制台不会自动验证脚本结果、修改 SSH 或同步脚本所需端口。"
+      : "节点部署会在实例创建后运行远程安装流程，并按结果同步防火墙端口；执行前必须重新确认。";
   $("#executionRisk").textContent = `${baseRisk} ${networkView.valid ? networkView.hint : networkView.reason}`;
   $("#executionPreviewState").textContent = state.preview?.fingerprint
     ? `预览 ${state.preview.fingerprint.slice(0, 12)}`
@@ -2359,6 +2433,7 @@ function fillConfigFromResource(item, clone = false) {
   $("#sshUser").value = item.record?.desired?.ssh?.user || "y";
   $("#sshKeyFile").value = item.record?.desired?.ssh?.keyFile || "";
   $("#sshPort").value = item.record?.desired?.ssh?.port || 45400;
+  $("#startupScript").value = clone ? "" : item.record?.desired?.deploy?.startupScript || "";
   const method = clone ? "vm_only" : item.record?.desired?.deploy?.method || "vm_only";
   const radio = $(`input[name="deployMethod"][value="${method}"]`);
   if (radio) radio.checked = true;
@@ -2411,7 +2486,7 @@ async function saveDraft({ preview = false } = {}) {
   if (preview) {
     const result = await api(`/api/vm-records/${encodeURIComponent(saved.record.id)}/preview`, { method: "POST", body: {} });
     state.preview = result.preview;
-    state.previewExecutable = true;
+    state.previewExecutable = result.preview?.executable !== false;
     state.lastJob = { status: "PREVIEW", label: `预览 ${saved.record.identity.name}`, type: "preview" };
     state.lastJobAt = new Date();
     focusPreview();
@@ -2437,16 +2512,33 @@ function renderPreview() {
     return;
   }
   $("#previewState").textContent = preview.fingerprint.slice(0, 12);
-  $("#previewState").className = "state-pill cloud";
+  $("#previewState").className = `state-pill ${preview.executable === false ? "warning" : "cloud"}`;
   const actions = Array.isArray(preview.actions) ? preview.actions : [];
   const actionLabels = {
     "ensure-static-address": "校验或保留静态 IPv4",
     "ensure-replacement-static-address": "为替换实例保留静态 IPv4",
     "create-vm": "创建实例",
-    "create-replacement-vm": "创建替换实例"
+    "create-replacement-vm": "创建替换实例",
+    "change-labels": "更新实例标签（当前版本仅预览）",
+    "change-tags": "更新网络标签（当前版本仅预览）",
+    "change-metadata-startupScriptHash": "更新启动脚本标记（当前版本仅预览）",
+    "change-machineType": "调整机器类型（当前版本仅预览）",
+    "change-disk-sizeGb": "调整磁盘大小（当前版本仅预览）",
+    "change-image": "更换系统镜像（当前版本仅预览）",
+    "change-disk-type": "更换磁盘类型（当前版本仅预览）",
+    "change-network-externalIpMode": "调整公网 IP 模式（当前版本仅预览）",
+    "change-network-networkTier": "调整网络层级（当前版本仅预览）",
+    "change-network-nicType": "调整网卡类型（当前版本仅预览）",
+    "change-network-addressName": "调整静态地址（当前版本仅预览）",
+    "change-network-name": "调整 VPC 网络（当前版本仅预览）",
+    "change-network-subnet": "调整子网（当前版本仅预览）",
+    "change-serviceAccount": "调整服务账号（当前版本仅预览）"
   };
   const networkSummary = preview.networkPlan
     ? toNetworkProfileView(preview.networkPlan, { instanceName: preview.identity.name }).summary
+    : "";
+  const unsupportedNotice = preview.executable === false
+    ? `<p class="inline-note is-warning">当前预览包含本版本尚未自动执行的修改；可以查看影响，但执行按钮会保持禁用。请使用“基于此新建”生成替换实例，或手动完成这些修改。</p>`
     : "";
   $("#previewPanel").innerHTML = `
     <div class="preview-meta">
@@ -2454,6 +2546,7 @@ function renderPreview() {
       <code>${escapeHtml(preview.fingerprint)}</code>
     </div>
     ${networkSummary ? `<p class="preview-network-summary">${escapeHtml(networkSummary)}</p>` : ""}
+    ${unsupportedNotice}
     <ul>${actions.map((action) => `<li>${escapeHtml(actionLabels[action.id] || action.id)}</li>`).join("") || "<li>无变化</li>"}</ul>
   `;
   setTimelineStep("preview");
@@ -3106,6 +3199,8 @@ function bindEvents() {
   }, "正在读取本机 gcloud 配置"));
   $("#accountSelect").addEventListener("change", () => {
     updatePendingContextFromSelects({ projectId: "" });
+    clearPendingContextResources();
+    renderContext();
     loadProjects().catch((error) => {
       toast(error.message, "error");
       log(`项目读取失败: ${error.message}`);
@@ -3113,7 +3208,11 @@ function bindEvents() {
   });
   $("#projectSelect").addEventListener("change", () => {
     updatePendingContextFromSelects();
+    clearPendingContextResources();
     renderContext();
+    if (pendingContextMatchesActive()) {
+      refreshResources().catch((error) => log(`重新读取实例清单失败: ${error.message}`));
+    }
   });
   $("#useContext").addEventListener("click", (event) => withBusyButton(event.currentTarget, useSelectedContext, "正在切换项目"));
   $("#doctorRunBtn").addEventListener("click", (event) => withBusyButton(event.currentTarget, () => loadDoctor("manual"), "正在运行只读体检"));
@@ -3317,6 +3416,7 @@ async function boot() {
       setSyncState("默认项目自动切换失败", "warn");
       log(`默认项目自动切换失败: ${error.message}`);
     });
+    showRoute();
   }
 }
 

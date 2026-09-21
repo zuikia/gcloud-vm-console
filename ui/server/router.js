@@ -580,7 +580,15 @@ export function createRouter({
           });
           return json(200, { job: jobStore.finish(job.id, { status: "succeeded", result }) });
         } catch (error) {
-          return json(errorStatus(error), { job: jobStore.fail(job.id, error), error: error.message });
+          const classified = classifyError(error);
+          const safeError = new Error(classified.message);
+          safeError.code = classified.code;
+          return json(classified.status, {
+            job: jobStore.fail(job.id, safeError),
+            error: classified.message,
+            errorCategory: classified.category,
+            code: classified.code
+          });
         }
       }
 

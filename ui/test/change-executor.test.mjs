@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -87,6 +87,34 @@ test("change executor creates a VM only after the saved preview still matches", 
   assert.equal(saved.status, "managed");
   assert.equal(saved.history.at(-1).idempotencyKey, "create-1");
   assert.equal(saved.history.at(-1).status, "succeeded");
+});
+
+test("change executor passes a custom startup script through a temporary metadata file", async (t) => {
+  const script = "#!/bin/bash\nprintf 'gvc-startup-ready\\n'\n";
+  const startupDesired = {
+    ...desired,
+    metadata: { ...desired.metadata, startupScriptHash: "script-custom" },
+    deploy: { method: "custom_startup", startupScript: script, configureSshPort: false }
+  };
+  const fixture = await setup(t, {
+    runImpl: async (command) => {
+      const startupFlag = command.find((part) => part.startsWith("--metadata-from-file=startup-script="));
+      if (startupFlag) {
+        const filePath = startupFlag.slice("--metadata-from-file=startup-script=".length);
+        assert.equal(await readFile(filePath, "utf8"), script);
+      }
+      return { exitCode: 0, stdout: "", stderr: "", command };
+    }
+  });
+  const preview = createChangePreview({ identity, desired: startupDesired, observed: null });
+  const record = await fixture.store.save({ status: "draft", identity, desired: startupDesired, observed: null, preview });
+
+  await fixture.executor.execute({ recordId: record.id, previewFingerprint: preview.fingerprint, idempotencyKey: "create-custom-startup" });
+
+  assert.equal(fixture.calls.filter((call) => call.command.some((part) => part.startsWith("--metadata-from-file=startup-script="))).length, 1);
+  const startupFlag = fixture.calls[0].command.find((part) => part.startsWith("--metadata-from-file=startup-script="));
+  const startupPath = startupFlag.slice("--metadata-from-file=startup-script=".length);
+  await assert.rejects(() => readFile(startupPath, "utf8"));
 });
 
 test("change executor reserves a compatible static address before creating a GVNIC VM", async (t) => {

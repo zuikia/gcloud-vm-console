@@ -124,6 +124,52 @@ test("change planner classifies live stop-required and replacement fields", () =
   assert.equal(preview.requiresReplacement, true);
   assert.equal(preview.summary.delete, 0);
   assert.ok(preview.actions.some((action) => action.id === "create-replacement-vm"));
+  assert.equal(preview.executable, false);
+  assert.ok(preview.unsupportedActions.includes("change-machineType"));
+});
+
+test("change planner marks unsupported in-place edits as preview-only", () => {
+  const preview = createChangePreview({ identity, desired: { ...desired, machineType: "e2-small" }, observed });
+  assert.equal(preview.executable, false);
+  assert.deepEqual(preview.unsupportedActions, ["change-machineType"]);
+});
+
+test("change planner requires a bounded custom startup script", () => {
+  assert.throws(
+    () => createChangePreview({
+      identity,
+      desired: { ...desired, deploy: { method: "custom_startup" } },
+      observed: null
+    }),
+    /自定义脚本不能为空/
+  );
+
+  assert.throws(
+    () => createChangePreview({
+      identity,
+      desired: {
+        ...desired,
+        deploy: { method: "custom_startup", startupScript: "x".repeat(64 * 1024 + 1) }
+      },
+      observed: null
+    }),
+    /64 KiB/
+  );
+});
+
+test("change planner marks a valid custom startup script as executable", () => {
+  const preview = createChangePreview({
+    identity,
+    desired: {
+      ...desired,
+      metadata: { startupScriptHash: "script-custom" },
+      deploy: { method: "custom_startup", startupScript: "#!/bin/bash\necho ready\n" }
+    },
+    observed: null
+  });
+
+  assert.equal(preview.executable, true);
+  assert.deepEqual(preview.actions.map((action) => action.id), ["create-vm"]);
 });
 
 test("change planner treats public IP tier NIC and static address changes as replacement-safe", () => {

@@ -38,10 +38,10 @@ const DEPLOY_LABELS = {
   vm_only: "无需部署节点",
   singbox_plus: "部署 Sing-Box-Plus",
   three_x_ui: "部署 3X-UI",
-  custom_startup: "运行自定义脚本"
+  custom_startup: "自定义脚本随实例启动执行"
 };
 
-const NODE_DEPLOY_METHODS = new Set(["singbox_plus", "three_x_ui", "custom_startup"]);
+const NODE_DEPLOY_METHODS = new Set(["singbox_plus", "three_x_ui"]);
 const LIVE_INVENTORY_ACTIONS = new Set([
   "openConfig",
   "detailPrimary",
@@ -124,8 +124,10 @@ export function toActionReadiness(input = {}) {
       ? "本地配置仍是只开实例；如需重新部署，请进入部署页选择部署方式并生成预览。"
       : deployMethod === "vm_only"
         ? "只开实例模式不安装代理软件，无需部署节点。"
-        : !deployNodesApplicable
-          ? "当前部署方式没有可自动执行的节点流水线，请先修改部署方式。"
+      : !deployNodesApplicable
+          ? deployMethod === "custom_startup"
+            ? "自定义脚本由实例启动时的 metadata 流程执行；请检查云端日志，不使用节点流水线。"
+            : "当前部署方式没有可自动执行的节点流水线，请先修改部署方式。"
           : (selected ? needsContext : needsSelected);
   const doctorWarning = ["warning", "blocked"].includes(input.doctorSummary?.status)
     ? input.doctorSummary.title || "环境体检有项目需要注意。"

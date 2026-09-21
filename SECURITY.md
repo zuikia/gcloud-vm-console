@@ -4,7 +4,7 @@
 
 ## Scope
 
-gcloud-vm-console is a local operator console. It can invoke `gcloud`, SSH,
+GCP VM Console is a local operator console. It can invoke `gcloud`, SSH,
 and user-provided startup or deployment scripts against infrastructure chosen
 by the operator.
 

@@ -575,7 +575,8 @@
 
                 <label id="startupScriptField" class="full-field" hidden>
                   <span>自定义 startup script</span>
-                  <textarea id="startupScript" rows="8" placeholder="输入需要在首次启动时执行的脚本" disabled></textarea>
+                  <textarea id="startupScript" rows="8" maxlength="65536" placeholder="输入可重复执行的启动脚本；不要写入密码、私钥或 token" aria-describedby="startupScriptHint" disabled></textarea>
+                  <small id="startupScriptHint">脚本会保存到本地记录和云端实例 metadata，并在每次启动时以 root 执行。请保证可重复执行，且不要包含密钥。创建成功不代表脚本执行成功。</small>
                 </label>
               </div>
             </details>

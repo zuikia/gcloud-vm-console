@@ -93,6 +93,24 @@ function requestedCustomSshPort(ssh = {}) {
   return port === 22 ? null : port;
 }
 
+function requestedPanelPort(value = 443) {
+  if ((typeof value !== "number" && typeof value !== "string") || !/^\d+$/.test(String(value))) {
+    throw new Error("3X-UI panelPort must be an integer between 1 and 65535.");
+  }
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error("3X-UI panelPort must be an integer between 1 and 65535.");
+  }
+  return String(port);
+}
+
+function requestedXuiVersion(value = "v2.9.4") {
+  if (typeof value !== "string" || value.length > 64 || !/^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/.test(value)) {
+    throw new Error("3X-UI xuiVersion must be an explicit version such as v2.9.4 or v2.10.0-rc.1.");
+  }
+  return value;
+}
+
 function safeSlug(value) {
   return String(value || "")
     .toLowerCase()
@@ -266,8 +284,8 @@ export function createNodePipeline({
   }
 
   async function deployThreeXUi(identity, deploy, ssh) {
-    const version = deploy.xuiVersion || "v2.9.4";
-    const panelPort = String(deploy.panelPort || 443);
+    const version = requestedXuiVersion(deploy.xuiVersion);
+    const panelPort = requestedPanelPort(deploy.panelPort);
     const sshPort = await configureRequestedSshPort(identity, deploy, ssh);
     const deploymentSsh = sshPort?.ssh || ssh;
     const installRun = await runSshCommand(

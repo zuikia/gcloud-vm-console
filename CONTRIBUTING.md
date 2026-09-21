@@ -2,7 +2,7 @@
 
 [简体中文](CONTRIBUTING.zh-CN.md) · English
 
-Thanks for helping improve gcloud-vm-console.
+Thanks for helping improve GCP VM Console.
 
 ## Before opening a pull request
 

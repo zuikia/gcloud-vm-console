@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -81,6 +81,8 @@ test("free rule service calibrates official Compute Engine Always Free rules and
   assert.equal(cache.generatedAt, "2026-06-18T00:00:00.000Z");
   assert.equal(cache.source.kind, "official");
   assert.equal(cache.rules.network.externalIpv4.separatePricing, true);
+  assert.equal((await stat(cacheDir)).mode & 0o777, 0o700);
+  assert.equal((await stat(path.join(cacheDir, "free-rules.json"))).mode & 0o777, 0o600);
 });
 
 test("free rule service refuses official success when required markers are missing", async (t) => {
@@ -115,6 +117,8 @@ test("free rule service uses stale cache when official fetch fails", async (t) =
     })
   });
   await first.calibrate({ configuration: "acct-a", account: "user@example.com", projectId: "project-a" });
+  await chmod(cacheDir, 0o755);
+  await chmod(path.join(cacheDir, "free-rules.json"), 0o644);
 
   const second = createFreeRuleService({
     cacheDir,
@@ -131,4 +135,6 @@ test("free rule service uses stale cache when official fetch fails", async (t) =
   assert.equal(result.stale, true);
   assert.ok(result.warning.includes("network offline"));
   assert.equal(result.generatedAt, "2026-06-18T00:00:00.000Z");
+  assert.equal((await stat(cacheDir)).mode & 0o777, 0o700);
+  assert.equal((await stat(path.join(cacheDir, "free-rules.json"))).mode & 0o777, 0o600);
 });

@@ -1347,6 +1347,8 @@ async function browserAudit() {
           if ((await page.textContent("#currentScope")) !== scopeBefore) issues.push(`${route}@${width}: project-error-mutated-active-context`);
           await page.selectOption("#accountSelect", "0");
           await page.waitForFunction(() => Boolean(document.querySelector("#projectSelect")?.value));
+          await page.waitForFunction(() => document.querySelector("#resourceCount")?.textContent?.trim() === "3 项");
+          await selectFirstResource(page);
         }
         if (route === "config" && width === 1440) {
           await domClick(page, "#savePreview");

@@ -1,5 +1,27 @@
 const DEFAULT_BODY_LIMIT = 1024 * 1024;
 
+export function isAllowedLoopbackOrigin(origin, { port = 8787 } = {}) {
+  const value = String(origin || "").trim();
+  if (!value) return true;
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+    const loopback = hostname === "127.0.0.1" || hostname === "localhost" || hostname === "[::1]";
+    return url.protocol === "http:" && loopback && Number(url.port || port) === Number(port);
+  } catch {
+    return false;
+  }
+}
+
+export function assertAllowedLoopbackOrigin(origin, options = {}) {
+  if (isAllowedLoopbackOrigin(origin, options)) return;
+  throw new HttpRequestError({
+    status: 403,
+    code: "cross_origin_blocked",
+    message: "已阻止来自非本地页面的请求。请从本地控制台页面发起操作。"
+  });
+}
+
 export class HttpRequestError extends Error {
   constructor({ status, code, message }) {
     super(message);

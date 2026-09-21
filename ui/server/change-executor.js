@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import { deriveStaticAddressName, normalizeNetworkProfile } from "../public/lib/network-profile.js";
-import { createChangePreview, previewMatchesCurrentState } from "./change-planner.js";
+import { createChangePreview, normalizeStartupScript, previewMatchesCurrentState, validateDesiredInputs } from "./change-planner.js";
 import { cloudIdentityKey, normalizeVmIdentity } from "./vm-identity.js";
 
 function clone(value) {
@@ -84,7 +87,7 @@ function networkInterfaceFlag(network = {}, { instanceName = "", addressName = "
   return `--network-interface=${values.join(",")}`;
 }
 
-function createVmCommand(identity, desired, { name = identity.name, addressName = "" } = {}) {
+function createVmCommand(identity, desired, { name = identity.name, addressName = "", startupScriptPath = "" } = {}) {
   const disk = desired.disk || {};
   const network = desired.network || {};
   const command = [
@@ -99,10 +102,24 @@ function createVmCommand(identity, desired, { name = identity.name, addressName 
     ...imageFlags(desired.image),
     ...labelsFlag(desired.labels),
     ...metadataFlag(desired.metadata),
+    ...(startupScriptPath ? [`--metadata-from-file=startup-script=${startupScriptPath}`] : []),
     ...tagsFlag(desired.tags)
   ];
   if (desired.serviceAccount) command.push(`--service-account=${desired.serviceAccount}`);
   return command;
+}
+
+async function withStartupScript(desired, operation) {
+  const { startupScript } = validateDesiredInputs(desired);
+  if (!startupScript) return operation("");
+  const directory = await mkdtemp(path.join(tmpdir(), "gvc-startup-"));
+  const filePath = path.join(directory, "startup.sh");
+  try {
+    await writeFile(filePath, normalizeStartupScript(startupScript, { required: true }), { encoding: "utf8", mode: 0o600 });
+    return await operation(filePath);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 }
 
 function gcloudOptions(identity) {
@@ -276,16 +293,19 @@ export function createChangeExecutor({
     const identity = normalizeVmIdentity(record.identity);
     const profile = normalizeNetworkProfile(record.desired?.network || {}, { instanceName: identity.name });
     const staticAddress = await ensureStaticAddress(identity, profile, identity.name);
-    try {
-      await runner.run(createVmCommand(identity, record.desired, {
-        addressName: staticAddress?.addressName || ""
-      }), gcloudOptions(identity));
-    } catch (error) {
-      if (staticAddress?.created) {
-        throw new Error(`静态地址 ${staticAddress.addressName} 已保留，但实例创建失败：${error?.message || String(error)}`);
+    await withStartupScript(record.desired, async (startupScriptPath) => {
+      try {
+        await runner.run(createVmCommand(identity, record.desired, {
+          addressName: staticAddress?.addressName || "",
+          startupScriptPath
+        }), gcloudOptions(identity));
+      } catch (error) {
+        if (staticAddress?.created) {
+          throw new Error(`静态地址 ${staticAddress.addressName} 已保留，但实例创建失败：${error?.message || String(error)}`);
+        }
+        throw error;
       }
-      throw error;
-    }
+    });
     const latestObserved = await inventory.readObserved(identity);
     const networkState = savedNetworkState(record, latestObserved, profile, staticAddress);
     const result = {
@@ -323,17 +343,20 @@ export function createChangeExecutor({
     const replacementName = replacementNameFor(identity, record.preview.fingerprint);
     const profile = normalizeNetworkProfile(record.desired?.network || {}, { instanceName: replacementName });
     const staticAddress = await ensureStaticAddress(identity, profile, replacementName);
-    try {
-      await runner.run(createVmCommand(identity, record.desired, {
-        name: replacementName,
-        addressName: staticAddress?.addressName || ""
-      }), gcloudOptions(identity));
-    } catch (error) {
-      if (staticAddress?.created) {
-        throw new Error(`静态地址 ${staticAddress.addressName} 已保留，但替换实例创建失败：${error?.message || String(error)}`);
+    await withStartupScript(record.desired, async (startupScriptPath) => {
+      try {
+        await runner.run(createVmCommand(identity, record.desired, {
+          name: replacementName,
+          addressName: staticAddress?.addressName || "",
+          startupScriptPath
+        }), gcloudOptions(identity));
+      } catch (error) {
+        if (staticAddress?.created) {
+          throw new Error(`静态地址 ${staticAddress.addressName} 已保留，但替换实例创建失败：${error?.message || String(error)}`);
+        }
+        throw error;
       }
-      throw error;
-    }
+    });
     const result = {
       status: "replacement_pending_verification",
       replacementName,

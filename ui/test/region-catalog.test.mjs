@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -92,6 +92,41 @@ test("region catalog writes source metadata to cache", async (t) => {
   assert.equal(cache.source.command, "gcloud compute zones list --format=json");
   assert.equal(cache.source.account, "user@example.com");
   assert.equal(cache.source.projectId, "project-a");
+  assert.equal((await stat(cacheDir)).mode & 0o777, 0o700);
+  assert.equal((await stat(path.join(cacheDir, "region-catalog.json"))).mode & 0o777, 0o600);
+});
+
+test("region catalog only reuses a cache for the exact account, project, and configuration", async (t) => {
+  const cacheDir = await tempCache(t);
+  await chmod(cacheDir, 0o755);
+  const first = createRegionCatalog({
+    runner: createRunner({ zones: [{ name: "us-west1-a", status: "UP" }] }).runner,
+    cacheDir,
+    now: () => "2026-06-18T00:00:00.000Z"
+  });
+  const context = { configuration: "acct-a", account: "user@example.com", projectId: "project-a" };
+  await first.load(context);
+  await chmod(path.join(cacheDir, "region-catalog.json"), 0o644);
+
+  const failed = createRegionCatalog({
+    runner: createRunner({ error: new Error("offline") }).runner,
+    cacheDir,
+    now: () => "2026-06-18T01:00:00.000Z"
+  });
+  const sameContext = await failed.load(context);
+  assert.equal(sameContext.source.kind, "stale-cache");
+  assert.equal((await stat(cacheDir)).mode & 0o777, 0o700);
+  assert.equal((await stat(path.join(cacheDir, "region-catalog.json"))).mode & 0o777, 0o600);
+
+  const differentProject = await failed.load({ ...context, projectId: "project-b" });
+  assert.equal(differentProject.source.kind, "fallback");
+  assert.equal(differentProject.source.projectId, "project-b");
+  const differentConfiguration = await failed.load({ ...context, configuration: "acct-b" });
+  assert.equal(differentConfiguration.source.kind, "fallback");
+  assert.equal(differentConfiguration.source.configuration, "acct-b");
+  const differentAccount = await failed.load({ ...context, account: "other@example.com" });
+  assert.equal(differentAccount.source.kind, "fallback");
+  assert.equal(differentAccount.source.account, "other@example.com");
 });
 
 test("region catalog falls back to stale cached or built-in regions when gcloud fails", async (t) => {

@@ -2,7 +2,7 @@
 
 [简体中文](RELEASE_CHECKLIST.zh-CN.md) · English
 
-This checklist is for the maintainer before the first public GitHub release.
+This checklist is for the maintainer before each public GitHub release.
 
 ## Local gate
 
@@ -19,17 +19,18 @@ This checklist is for the maintainer before the first public GitHub release.
 ## Before pushing
 
 - [x] Review the staged file list and confirm no private docs or private screenshots are included
-- [ ] Confirm MIT is the intended license and all included source can be released
-- [ ] Choose the final GitHub repository owner and name
-- [ ] Confirm the repository description and visibility are public
+- [x] Confirm MIT is the intended license and all included source can be released
+- [x] Choose the final GitHub repository owner and name
+- [x] Confirm the repository description and visibility are public
 - [ ] Enable private vulnerability reporting or publish a private security contact
 - [ ] Add repository topics such as `google-cloud`, `gcloud`, `compute-engine`,
       `vm-management`, and `infrastructure-safety`
-- [ ] Create the first release only after the public README renders correctly
+- [ ] Create the next release only after the public README renders correctly
 
 ## Before applying to Codex for Open Source
 
-- [ ] Publish `v0.1.0` and verify the CI badge/build
+- [x] Track the superseded `v0.1.0` baseline in the changelog
+- [ ] Publish `v0.2.0` and verify the CI badge/build
 - [x] Add a screenshot or short demo using mock data
 - [ ] Record any early issues, pull requests, or users without inventing usage numbers
 - [ ] Prepare the application using the primary-maintainer role

@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const FREE_RULES_URL = "https://docs.cloud.google.com/free/docs/free-cloud-features";
@@ -57,6 +57,8 @@ function cachePath(cacheDir) {
 
 async function readCache(cacheDir) {
   try {
+    await chmod(cacheDir, 0o700);
+    await chmod(cachePath(cacheDir), 0o600);
     return JSON.parse(await readFile(cachePath(cacheDir), "utf8"));
   } catch {
     return null;
@@ -65,7 +67,9 @@ async function readCache(cacheDir) {
 
 async function writeCache(cacheDir, payload) {
   await mkdir(cacheDir, { recursive: true });
-  await writeFile(cachePath(cacheDir), `${JSON.stringify(payload, null, 2)}\n`);
+  await chmod(cacheDir, 0o700);
+  await writeFile(cachePath(cacheDir), `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
+  await chmod(cachePath(cacheDir), 0o600);
 }
 
 function verifyOfficialHtml(html) {

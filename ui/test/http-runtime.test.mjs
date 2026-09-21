@@ -2,10 +2,24 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  assertAllowedLoopbackOrigin,
   HttpRequestError,
+  isAllowedLoopbackOrigin,
   readJsonBody,
   toPublicHttpError
 } from "../server/http-runtime.js";
+
+test("HTTP runtime allows only the local console origin and non-browser callers", () => {
+  assert.equal(isAllowedLoopbackOrigin(undefined, { port: 8787 }), true);
+  assert.equal(isAllowedLoopbackOrigin("http://127.0.0.1:8787", { port: 8787 }), true);
+  assert.equal(isAllowedLoopbackOrigin("http://localhost:8787", { port: 8787 }), true);
+  assert.equal(isAllowedLoopbackOrigin("https://evil.example", { port: 8787 }), false);
+  assert.equal(isAllowedLoopbackOrigin("http://localhost:3000", { port: 8787 }), false);
+  assert.throws(
+    () => assertAllowedLoopbackOrigin("https://evil.example", { port: 8787 }),
+    (error) => error instanceof HttpRequestError && error.status === 403 && error.code === "cross_origin_blocked"
+  );
+});
 
 function requestFrom(chunks) {
   return {

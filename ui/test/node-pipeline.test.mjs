@@ -359,3 +359,64 @@ test("node pipeline reads 3X-UI install-result env output after pinned non-inter
   assert.match(fake.calls[0].command.join(" "), /v2\.9\.4/);
   assert.match(fake.calls[0].command.join(" "), /cat \/etc\/x-ui\/install-result\.env/);
 });
+
+test("node pipeline validates and canonicalizes 3X-UI port and version before building the root command", async () => {
+  for (const [panelPort, xuiVersion, expectedPort] of [
+    [undefined, undefined, "443"],
+    [1, "2.9.4", "1"],
+    ["65535", "v2.10.0-rc.1", "65535"],
+    ["00443", "v2.9.4", "443"]
+  ]) {
+    const fake = createFakeRunner();
+    const firewall = createFakeFirewall();
+    const pipeline = createNodePipeline({ runner: fake.runner, firewallService: firewall.service });
+
+    await pipeline.deploy({ identity, deploy: { method: "three_x_ui", panelPort, xuiVersion }, ssh });
+
+    const command = fake.calls[0].command.find((part) => part.startsWith("--command="));
+    assert.ok(command.includes(`XUI_PANEL_PORT=${expectedPort} bash `));
+    assert.ok(command.includes(`install.sh) ${xuiVersion ?? "v2.9.4"};`));
+    assert.deepEqual(firewall.calls[0].ports, [expectedPort]);
+  }
+});
+
+test("node pipeline rejects invalid or injected 3X-UI panel ports before any remote operation", async () => {
+  const invalidPorts = [
+    0, -1, 65536, 443.5, NaN, Infinity, null, false, [], {}, "", " ", " 443", "443 ",
+    "443.0", "4.43e2", "0x1bb", "443;id", "443$(id)", "443`id`", "443\nwhoami", "443\";id"
+  ];
+  for (const panelPort of invalidPorts) {
+    const fake = createFakeRunner();
+    const firewall = createFakeFirewall();
+    const pipeline = createNodePipeline({ runner: fake.runner, firewallService: firewall.service });
+
+    await assert.rejects(pipeline.deploy({
+      identity,
+      deploy: { method: "three_x_ui", panelPort, configureSshPort: true },
+      ssh
+    }), /panelPort must be an integer between 1 and 65535/);
+    assert.equal(fake.calls.length, 0, `SSH must not run for port ${String(panelPort)}`);
+    assert.equal(firewall.calls.length, 0, `Firewall must not change for port ${String(panelPort)}`);
+  }
+});
+
+test("node pipeline rejects invalid or injected 3X-UI versions before any remote operation", async () => {
+  const invalidVersions = [
+    null, false, 294, [], {}, "", "latest", "master", "--help", "v2.9", "v2.9.4 ", " v2.9.4",
+    "v2.9.4;id", "v2.9.4$(id)", "v2.9.4`id`", "v2.9.4\nwhoami", "v2.9.4\";id",
+    "v2.9.4 && id", "v2.9.4|id", "v2.9.4/../../install.sh", `v2.9.4-${"a".repeat(64)}`
+  ];
+  for (const xuiVersion of invalidVersions) {
+    const fake = createFakeRunner();
+    const firewall = createFakeFirewall();
+    const pipeline = createNodePipeline({ runner: fake.runner, firewallService: firewall.service });
+
+    await assert.rejects(pipeline.deploy({
+      identity,
+      deploy: { method: "three_x_ui", xuiVersion, configureSshPort: true },
+      ssh
+    }), /xuiVersion must be an explicit version/);
+    assert.equal(fake.calls.length, 0, `SSH must not run for version ${String(xuiVersion)}`);
+    assert.equal(firewall.calls.length, 0, `Firewall must not change for version ${String(xuiVersion)}`);
+  }
+});
