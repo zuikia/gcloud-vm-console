@@ -93,19 +93,18 @@ const PHRASE_PAIRS = [
   ["在Tasks结束前重启", "restarted before the task ended"],
   ["System没有自动续跑或重试。", "The system did not resume or retry automatically."],
   ["LocalServices", "The local service"],
-  ["连接", "connection"],
   ["Read-only取Status并写入Local", "The read-only probe collected status and wrote local"],
-  ["结果", "result"],
   ["本地服务在任务结束前重启，云端最终状态未确认；系统没有自动续跑或重试。", "The local service restarted before the task ended; final cloud status is unconfirmed. The system did not resume or retry automatically."],
   ["只读探测取状态并写入本地验证结果。", "The read-only probe collected status and wrote local verification results."],
   ["Read-only探测取Status并写入LocalVerificationresult。", "The read-only probe collected status and wrote local verification results."],
   ["Read-only取Status并写入Local验证结果。", "The read-only probe collected status and wrote local verification results."],
   ["取Status", "collected status"],
-  ["取", "collect"],
   ["Read-only取Status", "The read-only probe collected status"],
   ["LocalVerificationresult", "local verification result"],
-  ["并", "and"],
   ["Read-only取StatusandwroteLocalVerificationresult。", "The read-only probe collected status and wrote the local verification result."],
+  ["Read-only取Status并wroteLocalVerification结果。", "The read-only probe collected status and wrote the local verification result."],
+  ["Read-only取Status并wroteLocalVerification结果", "The read-only probe collected status and wrote the local verification result"],
+  ["22 连接", "via 22"],
   ["写入", "wrote"],
   ["北美出站", "North America egress"],
   ["北美", "North America"],
@@ -726,6 +725,20 @@ function replacePhrases(value, locale) {
   return text;
 }
 
+function settledPresentation(value, locale) {
+  let text = replacePhrases(value, locale);
+  // Renderers can append a fresh Chinese fragment to a node that was already
+  // translated (for example, a dynamic disabled reason). A second pass only
+  // runs while CJK remains, so English presentation values never cascade into
+  // one another.
+  for (let pass = 0; pass < 2 && locale === "en-US" && /[\u4e00-\u9fff]/.test(text); pass += 1) {
+    const next = replacePhrases(text, locale);
+    if (next === text) break;
+    text = next;
+  }
+  return text;
+}
+
 function normalizeLocale(value) {
   return String(value || "").toLowerCase().startsWith("en") ? "en-US" : "zh-CN";
 }
@@ -761,7 +774,7 @@ function translateDom(root, locale) {
     if (!shouldSkipTextNode(root) && root.nodeValue.trim()) {
       const source = root.__gcloudI18nSource ?? root.nodeValue;
       root.__gcloudI18nSource = source;
-      const translated = replacePhrases(source, locale);
+      const translated = settledPresentation(source, locale);
       if (translated !== root.nodeValue) root.nodeValue = translated;
     }
     return;
@@ -774,7 +787,7 @@ function translateDom(root, locale) {
     if (shouldSkipTextNode(node) || !node.nodeValue.trim()) continue;
     const source = node.__gcloudI18nSource ?? node.nodeValue;
     node.__gcloudI18nSource = source;
-    const translated = replacePhrases(source, locale);
+    const translated = settledPresentation(source, locale);
     if (translated !== node.nodeValue) node.nodeValue = translated;
   }
   const elements = [];
@@ -787,7 +800,7 @@ function translateDom(root, locale) {
       const sources = element.__gcloudI18nAttributes || (element.__gcloudI18nAttributes = {});
       const source = sources[attribute] ?? element.getAttribute(attribute);
       sources[attribute] = source;
-      const translated = replacePhrases(source, locale);
+      const translated = settledPresentation(source, locale);
       if (translated !== element.getAttribute(attribute)) element.setAttribute(attribute, translated);
     }
   }
