@@ -30,6 +30,7 @@ function actionInput(overrides = {}) {
     selected: false,
     hasLocalRecord: false,
     hasCloudInstance: false,
+    instanceStatus: "RUNNING",
     recognitionReady: false,
     deployMethod: "vm_only",
     previewExecutable: false,

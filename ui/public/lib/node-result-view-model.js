@@ -58,7 +58,7 @@ function normalizePanel(panel) {
   const rows = [
     { label: "面板地址", value: panel.url || "", kind: "url" },
     { label: "用户名", value: panel.username || "", kind: "text" },
-    { label: "密码", value: panel.password || "", kind: "secret" }
+    ...(panel.credentialsAvailable ? [{ label: "凭据", value: "已生成（不会在记录中显示）", kind: "secret-status" }] : [])
   ].filter((row) => row.value);
   if (!rows.length) return null;
   return {

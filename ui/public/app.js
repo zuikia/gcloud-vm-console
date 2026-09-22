@@ -268,6 +268,7 @@ function actionReadinessInput() {
     configInvalidReason: config.reason,
     inventoryLive: state.inventoryMeta?.source === "live" && state.inventoryMeta?.stale !== true,
     hasFreshPortEvidence: exposureView.hasFreshPortEvidence,
+    instanceStatus: String(item?.cloud?.status || item?.record?.observed?.status || ""),
     networkExposurePasswordReady: Boolean(state.sshAuthStatus?.configured || passwordInputValid),
     networkExposurePreviewReady: exposureView.canApply,
     hasWarpCandidate: Boolean(warpView.visible),
@@ -2206,12 +2207,14 @@ function splitList(value) {
 }
 
 function parseLabelsJson(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return {};
   try {
-    const parsed = JSON.parse(value || "{}");
+    const parsed = JSON.parse(raw);
     if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") throw new Error("labels must be an object");
     return Object.fromEntries(Object.entries(parsed).map(([key, labelValue]) => [key, String(labelValue)]));
   } catch {
-    return { managed_by: "gcp-vm-console" };
+    throw new Error("Labels JSON 格式无效，请输入 JSON 对象，例如 {\"env\":\"prod\"}。");
   }
 }
 
@@ -2255,6 +2258,11 @@ function configValidation() {
   const view = currentNetworkProfileView();
   if (!view.valid) return { valid: false, reason: view.reason };
   if (!$("#configForm")?.checkValidity()) return { valid: false, reason: "请检查实例名称、端口和网络字段格式。" };
+  try {
+    parseLabelsJson($("#labelsJson")?.value);
+  } catch (error) {
+    return { valid: false, reason: error.message };
+  }
   if (selectedDeployMethod() === "custom_startup") {
     const script = String($("#startupScript")?.value || "");
     if (!script.trim()) return { valid: false, reason: "自定义脚本不能为空，请填写启动脚本。" };
@@ -2732,7 +2740,7 @@ function renderNodePanelRows(panel) {
         <div class="node-value-row">
           <span>${escapeHtml(row.label)}</span>
           <code class="node-value-code" title="${escapeHtml(row.value)}">${escapeHtml(row.value)}</code>
-          ${nodeCopyButton(row.copyValue)}
+          ${nodeCopyButton(row.kind === "secret-status" ? "" : row.copyValue)}
         </div>
       `).join("")}
     </div>

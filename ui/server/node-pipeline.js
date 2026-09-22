@@ -334,7 +334,7 @@ export function createNodePipeline({
         panel: {
           url: panelUrl,
           username: panelUsername,
-          password: panelPassword,
+          credentialsAvailable: Boolean(panelPassword || parsed.XUI_API_TOKEN),
           port: resolvedPanelPort,
           webBasePath: parsed.XUI_WEB_BASE_PATH || ""
         },

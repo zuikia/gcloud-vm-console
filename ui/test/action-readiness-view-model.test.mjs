@@ -36,6 +36,7 @@ test("action readiness enables selected instance reads and keeps vm-only deploym
     hasLocalRecord: true,
     hasCloudInstance: true,
     hasVerificationResult: true,
+    instanceStatus: "RUNNING",
     deployMethod: "vm_only",
     previewExecutable: false
   });
@@ -51,6 +52,23 @@ test("action readiness enables selected instance reads and keeps vm-only deploym
   assert.match(view.deployNodes.reason, /只开实例/);
   assert.equal(view.deleteCloudResource.enabled, false);
   assert.match(view.deleteCloudResource.reason, /未开放/);
+});
+
+test("action readiness blocks maintenance actions for a stopped instance", () => {
+  const view = toActionReadiness({
+    serviceReady: true,
+    contextReady: true,
+    accountSelected: true,
+    projectSelected: true,
+    selected: true,
+    hasLocalRecord: true,
+    hasCloudInstance: true,
+    instanceStatus: "TERMINATED"
+  });
+
+  assert.equal(view.restartVm.enabled, false);
+  assert.equal(view.systemUpdate.enabled, false);
+  assert.match(view.restartVm.reason, /先启动实例/);
 });
 
 test("action readiness distinguishes setup from modification and first probe from re-probe", () => {
@@ -93,6 +111,7 @@ test("action readiness does not expose redeploy writes when recognition disagree
     selected: true,
     hasLocalRecord: true,
     hasCloudInstance: true,
+    instanceStatus: "RUNNING",
     recognitionReady: true,
     deployMethod: "vm_only",
     observedDeployMethod: "three_x_ui",
@@ -114,6 +133,7 @@ test("action readiness disables node deployment for external or unknown methods"
       selected: true,
       hasLocalRecord: true,
       hasCloudInstance: true,
+      instanceStatus: "RUNNING",
       deployMethod
     });
 
@@ -150,6 +170,7 @@ test("action readiness surfaces doctor warning without enabling blocked writes",
     projectSelected: true,
     selected: true,
     hasLocalRecord: true,
+    instanceStatus: "RUNNING",
     deployMethod: "singbox_plus",
     previewExecutable: false,
     doctorSummary: { status: "warning", title: "环境体检有 2 项需要注意" }
@@ -169,6 +190,7 @@ test("action readiness exposes write confirmations and preview gate", () => {
     projectSelected: true,
     selected: true,
     hasLocalRecord: true,
+    instanceStatus: "RUNNING",
     deployMethod: "singbox_plus",
     previewExecutable: true
   });
@@ -208,6 +230,7 @@ test("action readiness enables local adoption only for selected cloud instances 
     selected: true,
     hasLocalRecord: true,
     hasCloudInstance: true,
+    instanceStatus: "RUNNING",
     recognitionReady: true,
     deployMethod: "three_x_ui",
     previewExecutable: false

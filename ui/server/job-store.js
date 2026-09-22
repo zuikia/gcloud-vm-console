@@ -1,5 +1,6 @@
 import * as nodeFs from "node:fs";
 import path from "node:path";
+import { sanitizeJobResult } from "./sensitive-data.js";
 
 const ACTIVE_STATUSES = new Set(["queued", "running"]);
 const TERMINAL_STATUSES = new Set(["succeeded", "partial", "failed", "interrupted"]);
@@ -86,7 +87,7 @@ function normalizeStoredJob(input, expectedId = "") {
     lockKey: String(input.lockKey || ""),
     status,
     stages: input.stages.map(normalizeStage),
-    result: input.result == null ? null : clone(input.result),
+    result: input.result == null ? null : sanitizeJobResult(input.result),
     error: input.error == null ? null : String(input.error),
     interruption: normalizeInterruption(input.interruption),
     createdAt: validTimestamp(input.createdAt, "job.createdAt"),

@@ -4,6 +4,8 @@ _Local, safety-first Google Cloud VM operations workbench._
 
 [简体中文](README.zh-CN.md) · English
 
+[![CI](https://github.com/zuikia/gcloud-vm-console/actions/workflows/check.yml/badge.svg)](https://github.com/zuikia/gcloud-vm-console/actions/workflows/check.yml)
+
 A local, safety-first workbench for Google Cloud Compute Engine. It uses the
 installed `gcloud` CLI as the only cloud control path and keeps credentials,
 records, task history, and secrets on the user's machine.
@@ -55,6 +57,10 @@ a real account, project, VM, IP address, or node link.
   written to records, logs, command arguments, or cloud metadata.
 - Live acceptance checks must target infrastructure that the operator owns or
   is authorized to review.
+
+The local API is intentionally unauthenticated for same-user automation, and
+the optional root-running adapters are experimental. Read [SECURITY.md](SECURITY.md)
+for the complete local-trust, SSH fingerprint, installer, and metadata limits.
 
 Read [SECURITY.md](SECURITY.md) before connecting the console to a project.
 

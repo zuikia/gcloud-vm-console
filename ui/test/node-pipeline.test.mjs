@@ -316,7 +316,8 @@ test("node pipeline installs pinned 3X-UI and syncs the panel port", async () =>
   assert.equal(result.method, "three_x_ui");
   assert.equal(result.nodeResult.panel.url, "http://203.0.113.10:443");
   assert.equal(result.nodeResult.panel.username, "admin");
-  assert.equal(result.nodeResult.panel.password, "secret");
+  assert.equal(result.nodeResult.panel.credentialsAvailable, true);
+  assert.equal(Object.hasOwn(result.nodeResult.panel, "password"), false);
   assert.deepEqual(result.nodeResult.links, [{ name: "vless-reality", url: "vless://reality-link" }]);
   assert.deepEqual(result.firewall.rules[0], {
     status: "synced",
@@ -351,7 +352,8 @@ test("node pipeline reads 3X-UI install-result env output after pinned non-inter
 
   assert.equal(result.nodeResult.panel.url, "http://203.0.113.10:443/abcdef1234567890");
   assert.equal(result.nodeResult.panel.username, "adminuser");
-  assert.equal(result.nodeResult.panel.password, "quoted secret");
+  assert.equal(result.nodeResult.panel.credentialsAvailable, true);
+  assert.equal(Object.hasOwn(result.nodeResult.panel, "password"), false);
   assert.equal(result.nodeResult.panel.port, "443");
   assert.equal(result.nodeResult.panel.webBasePath, "abcdef1234567890");
   assert.match(fake.calls[0].command.join(" "), /XUI_NONINTERACTIVE=1/);

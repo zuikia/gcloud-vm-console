@@ -1056,6 +1056,39 @@ test("server app runs maintenance endpoints as jobs against the selected VM reco
   });
 });
 
+test("server app blocks restart and system update when the live instance is not running", async (t) => {
+  const calls = [];
+  const { app, recordStore } = await setup(t, {
+    inventory: {
+      async readObserved() {
+        return { exists: true, status: "TERMINATED" };
+      },
+      async listInstances() {
+        return [{ ...identity, exists: true, status: "TERMINATED" }];
+      }
+    },
+    maintenanceService: {
+      async restartVm() { calls.push("restart"); },
+      async systemUpdate() { calls.push("system-update"); }
+    }
+  });
+  const saved = await recordStore.save({
+    status: "managed",
+    identity,
+    desired: { ...desired, ssh: { user: "y", keyFile: "/tmp/gcp-key", port: 45400 } }
+  });
+
+  const restart = await app.dispatch({ method: "POST", url: `/api/vm-records/${saved.id}/maintenance/restart` });
+  const update = await app.dispatch({ method: "POST", url: `/api/vm-records/${saved.id}/maintenance/system-update` });
+
+  assert.equal(restart.status, 400);
+  assert.equal(update.status, 400);
+  assert.match(restart.body.error, /TERMINATED/);
+  assert.match(restart.body.error, /请先启动实例/);
+  assert.match(update.body.error, /请先启动实例/);
+  assert.deepEqual(calls, []);
+});
+
 test("server app exposes persistent read-only job history newest first", async (t) => {
   const { app, jobRoot, recordStore, runnerCalls } = await setup(t);
   const saved = await recordStore.save({

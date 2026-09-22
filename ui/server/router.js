@@ -21,7 +21,7 @@ function recordIdFrom(pathname, suffix = "") {
 function baseErrorStatus(error) {
   if (/not found/i.test(error?.message || "")) return 404;
   if (/already running/i.test(error?.message || "")) return 409;
-  if (/required|invalid|stale|fingerprint|确认|敏感|选择明确|过期/i.test(error?.message || "")) return 400;
+  if (/required|invalid|stale|fingerprint|确认|敏感|选择明确|过期|请先启动|当前状态/i.test(error?.message || "")) return 400;
   return 500;
 }
 
@@ -316,12 +316,15 @@ export function createRouter({
     };
   }
 
-  async function assertLiveCloudWriteReady(record) {
+  async function assertLiveCloudWriteReady(record, { requireRunning = false } = {}) {
     const instances = await inventory.listInstances(record.identity);
     const observed = instances.find((instance) => (
       instance.name === record.identity.name && (!instance.zone || instance.zone === record.identity.zone)
     ));
     if (!observed) throw new Error("无法通过实时 Google API 确认实例，云端写操作已阻止。");
+    if (requireRunning && String(observed.status || "").toUpperCase() !== "RUNNING") {
+      throw new Error(`实例当前状态为 ${observed.status || "UNKNOWN"}，请先启动实例后再执行维护操作。`);
+    }
     return observed;
   }
 
@@ -634,7 +637,7 @@ export function createRouter({
             detail: "停止后重新启动所选实例"
           },
           task: async (record) => {
-            await assertLiveCloudWriteReady(record);
+            await assertLiveCloudWriteReady(record, { requireRunning: true });
             const result = await maintenanceService.restartVm(record.identity);
             await recordStore.save({
               ...record,
@@ -656,7 +659,7 @@ export function createRouter({
             detail: "通过 IAP SSH 分阶段执行系统更新"
           },
           task: async (record) => {
-            await assertLiveCloudWriteReady(record);
+            await assertLiveCloudWriteReady(record, { requireRunning: true });
             const result = await maintenanceService.systemUpdate(record.identity, sshOptions(record));
             await recordStore.save({
               ...record,
@@ -736,7 +739,7 @@ export function createRouter({
             detail: "执行所选部署管线并同步端口"
           },
           task: async (record) => {
-            await assertLiveCloudWriteReady(record);
+            await assertLiveCloudWriteReady(record, { requireRunning: true });
             const result = await nodePipeline.deploy({
               identity: record.identity,
               deploy: deployOptions(record),

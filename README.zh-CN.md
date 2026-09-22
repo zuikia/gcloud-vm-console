@@ -4,6 +4,8 @@ _本地运行、以安全为先的 Google Cloud VM 运维工作台。_
 
 [English](README.md) · 简体中文
 
+[![CI](https://github.com/zuikia/gcloud-vm-console/actions/workflows/check.yml/badge.svg)](https://github.com/zuikia/gcloud-vm-console/actions/workflows/check.yml)
+
 一个本地运行、以安全为先的 Google Cloud Compute Engine 运维工作台。项目只通过已安装的 `gcloud` CLI 操作云端，并将凭据、记录、任务历史和密钥留在用户自己的机器上。
 
 它面向需要管理虚拟机清单、诊断、部署预览、SSH、防火墙暴露和维护流程的用户，避免把本地工具变成托管式控制平面。
@@ -45,6 +47,8 @@ _本地运行、以安全为先的 Google Cloud VM 运维工作台。_
   端口暴露给其他设备。非 loopback Origin 会被拒绝，但这不能替代网络访问控制。
 - SSH 密码只保存在本地受限 Secret Store 中，不写入记录、日志、命令参数或云端元数据。
 - 实时验收只能针对操作者拥有或获授权检查的基础设施。
+
+本地 API 为同一用户的自动化保留了无身份认证模式，可选的 root 适配器属于实验功能。完整的本机信任、SSH 指纹、安装器和 metadata 限制请阅读[安全政策](SECURITY.zh-CN.md)。
 
 连接任何项目之前，请先阅读 [安全政策](SECURITY.zh-CN.md)。
 

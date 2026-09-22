@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { normalizeVmIdentity, recordIdForIdentity } from "./vm-identity.js";
 import { createSingleFlight } from "./single-flight.js";
+import { sanitizeNodeResult } from "./sensitive-data.js";
 
 const RECORD_ID_PATTERN = /^[a-z][a-z0-9-]{0,62}$/;
 const RECORD_STATUSES = new Set(["draft", "cloud", "managed", "conflict", "replacing"]);
@@ -38,7 +39,7 @@ function normalizeRecord(input, existing, now) {
     desired: clone(input.desired || {}),
     observed: input.observed == null ? null : clone(input.observed),
     preview: input.preview == null ? null : clone(input.preview),
-    nodeResult: input.nodeResult == null ? null : clone(input.nodeResult),
+    nodeResult: input.nodeResult == null ? null : sanitizeNodeResult(input.nodeResult),
     verification: input.verification == null ? null : clone(input.verification),
     migration: input.migration == null ? null : clone(input.migration),
     history: clone(input.history || []),

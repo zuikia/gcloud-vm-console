@@ -84,6 +84,24 @@ test("VM record store preserves createdAt and replaces record state on save", as
   assert.equal(second.history.length, 1);
 });
 
+test("VM record store removes legacy 3X-UI credentials before persistence and reads", async (t) => {
+  const { rootDir, store } = await withStore(t);
+  const saved = await store.save({
+    status: "managed",
+    identity: identityA,
+    desired: {},
+    nodeResult: {
+      type: "three_x_ui",
+      panel: { url: "https://panel.example", username: "admin", password: "legacy-secret", apiToken: "legacy-token" }
+    }
+  });
+
+  assert.equal(saved.nodeResult.panel.credentialsAvailable, true);
+  assert.equal(Object.hasOwn(saved.nodeResult.panel, "password"), false);
+  assert.doesNotMatch(await readFile(path.join(rootDir, saved.id, "record.json"), "utf8"), /legacy-secret|legacy-token/);
+  assert.equal((await store.get(saved.id)).nodeResult.panel.credentialsAvailable, true);
+});
+
 test("VM record store lists records inside an exact account and project scope", async (t) => {
   const { store } = await withStore(t);
   await store.save({ status: "draft", identity: identityA, desired: {} });

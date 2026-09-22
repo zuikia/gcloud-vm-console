@@ -289,12 +289,12 @@ export function createDeploymentVerifier({
 
     if (requirements.panel) {
       const panel = nodeResult?.panel || {};
-      const ok = Boolean(panel.url && panel.username && panel.password);
+      const ok = Boolean(panel.url && panel.username && (panel.credentialsAvailable ?? panel.password));
       checks.push({
         id: "panel",
         label: "3X-UI 面板",
         status: checkStatus(ok),
-        detail: ok ? "面板地址和账号已收集" : "面板地址、用户名或密码缺失"
+        detail: ok ? "面板地址和账号已收集" : "面板地址、用户名或凭据状态缺失"
       });
     }
 

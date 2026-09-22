@@ -517,6 +517,11 @@ test("editing VM configuration invalidates the previous executable preview", () 
   assert.match(app, /#configForm input, #configForm select, #configForm textarea/);
 });
 
+test("configuration validation does not silently replace malformed labels JSON", () => {
+  assert.match(app, /Labels JSON 格式无效/);
+  assert.match(app, /parseLabelsJson\(\$\("#labelsJson"\)\?\.value\)/);
+});
+
 test("instance inventory exposes only the five approved desktop columns", () => {
   assert.match(app, /class="resource-table"/);
   const tableHead = app.match(/<thead>[\s\S]*?<\/thead>/)?.[0] || "";

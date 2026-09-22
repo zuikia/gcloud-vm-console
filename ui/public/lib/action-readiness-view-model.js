@@ -108,6 +108,14 @@ export function toActionReadiness(input = {}) {
   const warpLastOutcome = String(input.warpLastOutcome || "");
   const warpReconnectReady = input.warpReconnectReady !== false;
   const hasVerifiedSsh = Boolean(input.hasVerifiedSsh);
+  const instanceStatus = String(input.instanceStatus || "").toUpperCase();
+  const statusKnown = Boolean(instanceStatus);
+  const instanceRunning = statusKnown && instanceStatus === "RUNNING";
+  const maintenanceStatusReason = !instanceRunning
+    ? statusKnown
+      ? `实例当前为 ${instanceStatus}，请先启动实例后再执行维护操作。`
+      : "实例运行状态未知，请先刷新实例状态。"
+    : "";
   const needsContext = "需要先在总览选择并切换账号与项目。";
   const needsSelected = "需要先在实例页选择一台实例。";
   const serviceReason = "本地控制台服务未连接。";
@@ -129,6 +137,8 @@ export function toActionReadiness(input = {}) {
             ? "自定义脚本由实例启动时的 metadata 流程执行；请检查云端日志，不使用节点流水线。"
             : "当前部署方式没有可自动执行的节点流水线，请先修改部署方式。"
           : (selected ? needsContext : needsSelected);
+  const deployNodesStatusBlocked = contextReady && selected && hasLocalRecord && deployNodesApplicable && !instanceRunning;
+  const maintenanceStatusBlocked = contextReady && selected && !instanceRunning;
   const doctorWarning = ["warning", "blocked"].includes(input.doctorSummary?.status)
     ? input.doctorSummary.title || "环境体检有项目需要注意。"
     : "";
@@ -214,13 +224,13 @@ export function toActionReadiness(input = {}) {
           ? "需要先生成有效的端口策略预览。"
           : needsContext
     ),
-    restartVm: item("restartVm", "重启实例", contextReady && selected, selected ? needsContext : needsSelected),
-    systemUpdate: item("systemUpdate", "系统更新", contextReady && selected, selected ? needsContext : needsSelected),
+    restartVm: item("restartVm", "重启实例", contextReady && selected && instanceRunning, maintenanceStatusBlocked ? maintenanceStatusReason : selected ? needsContext : needsSelected),
+    systemUpdate: item("systemUpdate", "系统更新", contextReady && selected && instanceRunning, maintenanceStatusBlocked ? maintenanceStatusReason : selected ? needsContext : needsSelected),
     deployNodes: item(
       "deployNodes",
       deployNodesLabel,
-      contextReady && selected && hasLocalRecord && deployNodesApplicable,
-      deployNodesReason
+      contextReady && selected && hasLocalRecord && deployNodesApplicable && instanceRunning,
+      deployNodesStatusBlocked ? maintenanceStatusReason : deployNodesReason
     ),
     deleteLocalRecord: item(
       "deleteLocalRecord",

@@ -149,6 +149,14 @@ async function clickToggle(page) {
   if (before.lang === after.lang) console.log(`toggle did not change: before=${JSON.stringify(before)} after=${JSON.stringify(after)}`);
 }
 
+async function selectDynamicResource(page, route) {
+  if (route !== "resources") return;
+  const row = page.locator('[data-resource-key]').filter({ hasText: "vm-a" }).first();
+  await row.waitFor({ state: "visible", timeout: 3000 });
+  await row.click();
+  await page.waitForTimeout(40);
+}
+
 async function audit() {
   const spawnedServer = await ensureServer();
   const browser = await chromium.launch({ headless: true });
@@ -175,6 +183,7 @@ async function audit() {
             await page.waitForTimeout(40);
           }
         }
+        await selectDynamicResource(page, route);
         await waitLocale(page, "zh-CN");
         issues.push(...await auditLocale(page, "zh-CN", route, width));
         if (route === "workbench" && process.env.UI_AUDIT_SCREENSHOTS === "1") {
@@ -188,11 +197,13 @@ async function audit() {
           await page.screenshot({ path: path.join(outputRoot, `workbench-en-US-${width}.png`), fullPage: true });
         }
         await page.reload({ waitUntil: "networkidle" });
+        await selectDynamicResource(page, route);
         await waitLocale(page, "en-US");
         issues.push(...await auditLocale(page, "en-US", route, width));
         await clickToggle(page);
         await waitLocale(page, "zh-CN");
         await page.reload({ waitUntil: "networkidle" });
+        await selectDynamicResource(page, route);
         await waitLocale(page, "zh-CN");
         issues.push(...await auditLocale(page, "zh-CN", route, width));
       }

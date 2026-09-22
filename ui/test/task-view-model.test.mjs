@@ -587,7 +587,7 @@ test("node detail data remains complete when the instance renderer hides its sta
     type: "three_x_ui",
     bbr: true,
     ssh: { desiredPort: 45400, actualPort: 22, fallback: true, verified: true },
-    panel: { url: "https://panel.example/base", username: "admin", password: "secret", port: 443 },
+    panel: { url: "https://panel.example/base", username: "admin", credentialsAvailable: true, port: 443 },
     links: [{ name: "vless-reality", protocol: "tcp", port: "443", url: "vless://result" }],
     firewall: {
       status: "synced",
@@ -603,7 +603,8 @@ test("node detail data remains complete when the instance renderer hides its sta
   });
 
   assert.equal(view.links[0].copyValue, "vless://result");
-  assert.deepEqual(view.panel.rows.map((row) => row.label), ["面板地址", "用户名", "密码"]);
+  assert.deepEqual(view.panel.rows.map((row) => row.label), ["面板地址", "用户名", "凭据"]);
+  assert.equal(view.panel.rows.at(-1).value, "已生成（不会在记录中显示）");
   assert.equal(view.ssh.actualPort, 22);
   assert.equal(view.ssh.fallback, true);
   assert.equal(view.bbr.label, "BBR 已开启");
@@ -615,13 +616,13 @@ test("node detail data remains complete when the instance renderer hides its sta
 test("node result view model handles 3X-UI panel credentials and empty instance states", () => {
   const xui = toNodeResultView({
     type: "three_x_ui",
-    panel: { url: "http://203.0.113.10:443/base", username: "admin", password: "secret" },
+    panel: { url: "http://203.0.113.10:443/base", username: "admin", credentialsAvailable: true },
     links: [{ name: "vless-reality", protocol: "tcp", port: "443", url: "vless://result" }]
   }, { deployMethod: "three_x_ui" });
 
   assert.equal(xui.panel.title, "3X-UI 面板");
-  assert.deepEqual(xui.panel.rows.map((row) => row.label), ["面板地址", "用户名", "密码"]);
-  assert.equal(xui.panel.rows[2].copyValue, "secret");
+  assert.deepEqual(xui.panel.rows.map((row) => row.label), ["面板地址", "用户名", "凭据"]);
+  assert.equal(xui.panel.rows[2].copyValue, "已生成（不会在记录中显示）");
   assert.equal(xui.links[0].label, "VLESS Reality");
 
   assert.equal(toNodeResultView(null, { hasLocalRecord: false }).emptyMessage, "未接管，部署后会生成节点结果");
